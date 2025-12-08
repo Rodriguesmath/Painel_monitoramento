@@ -1,4 +1,4 @@
-package com.cagepa.pmg;
+ampackage com.cagepa.pmg;
 
 import java.util.Scanner;
 
@@ -26,10 +26,11 @@ public class PainelCLI {
                 }
             } else {
                 System.out.println("\n--- Menu Principal ---");
-                System.out.println("1. Processar Leitura");
-                System.out.println("2. Configurar Alerta");
-                System.out.println("3. Gerar Relatório");
-                System.out.println("4. Cadastrar Usuário");
+                System.out.println("1. Iniciar Monitoramento Contínuo");
+                System.out.println("2. Parar Monitoramento");
+                System.out.println("3. Configurar Alerta");
+                System.out.println("4. Gerar Relatório");
+                System.out.println("5. Cadastrar Usuário");
                 System.out.println("0. Sair");
                 System.out.print("Escolha uma opção: ");
 
@@ -37,15 +38,12 @@ public class PainelCLI {
 
                 switch (opcao) {
                     case "1":
-                        System.out.print("ID do SHA: ");
-                        String idSHA = scanner.nextLine();
-                        System.out.print("Caminho do diretório de imagens: ");
-                        String caminho = scanner.nextLine();
-                        System.out.print("Tipo de Medidor (DIGITAL/ANALOGICO): ");
-                        String tipoMedidor = scanner.nextLine();
-                        fachada.processarLeitura(idSHA, caminho, tipoMedidor);
+                        fachada.iniciarMonitoramento();
                         break;
                     case "2":
+                        fachada.pararMonitoramento();
+                        break;
+                    case "3":
                         System.out.print("ID do Usuário: ");
                         String idUserAlerta = scanner.nextLine();
                         System.out.print("Limite de Consumo: ");
@@ -54,14 +52,14 @@ public class PainelCLI {
                         String tipoNotif = scanner.nextLine();
                         fachada.configurarAlerta(idUserAlerta, limite, tipoNotif);
                         break;
-                    case "3":
+                    case "4":
                         System.out.print("Tipo de Relatório (PDF/CSV): ");
                         String tipoRel = scanner.nextLine();
                         System.out.print("ID do Usuário: ");
                         String idUserRel = scanner.nextLine();
                         fachada.gerarRelatorio(tipoRel, idUserRel);
                         break;
-                    case "4":
+                    case "5":
                         System.out.print("ID do Novo Usuário: ");
                         String novoId = scanner.nextLine();
                         System.out.print("Nome: ");
@@ -71,6 +69,7 @@ public class PainelCLI {
                         fachada.cadastrarUsuario(novoId, novoNome, novaSenha);
                         break;
                     case "0":
+                        fachada.pararMonitoramento(); // Ensure stop on exit
                         executando = false;
                         System.out.println("Encerrando sistema...");
                         break;

@@ -1,8 +1,8 @@
 package com.cagepa.pmg.smc.adapter;
 
-import java.io.File;
+import java.util.List;
 
 public interface IProcessadorImagem {
-    // Receives a directory path containing the sequence of images
-    double processarImagens(File diretorioImagens) throws Exception;
+    // Scans the internal directory for new readings
+    List<LeituraDados> processarNovasImagens();
 }

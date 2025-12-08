@@ -10,25 +10,28 @@ import com.cagepa.pmg.sgr.RelatorioCSV;
 import com.cagepa.pmg.sgr.RelatorioPDF;
 import com.cagepa.pmg.sgu.SGU;
 import com.cagepa.pmg.smc.SMC;
-import com.cagepa.pmg.smc.adapter.AdaptadorMostradorAnalogico;
-import com.cagepa.pmg.smc.adapter.AdaptadorMostradorDigital;
-import com.cagepa.pmg.smc.adapter.IProcessadorImagem;
-import java.io.File;
+import com.cagepa.pmg.smc.adapter.AdaptadorAnalogicoModeloA;
+import com.cagepa.pmg.smc.adapter.AdaptadorAnalogicoModeloB;
+import com.cagepa.pmg.smc.adapter.AdaptadorAnalogicoModeloC;
 
 public class FachadaSistema {
     private SGU sgu;
     private SMC smc;
     private SAN san;
-    // SGR is instantiated on demand or we can keep instances if stateless
 
     public FachadaSistema() {
         this.sgu = new SGU();
         this.san = new SAN();
-        this.san.setSgu(this.sgu); // Inject SGU into SAN
+        this.san.setSgu(this.sgu);
         this.smc = new SMC();
 
-        // Connect SMC to SAN (Observer Pattern)
+        // Connect SMC to SAN
         this.smc.addObserver(this.san);
+
+        // Register Adapters
+        this.smc.adicionarAdaptador(new AdaptadorAnalogicoModeloA());
+        this.smc.adicionarAdaptador(new AdaptadorAnalogicoModeloB());
+        this.smc.adicionarAdaptador(new AdaptadorAnalogicoModeloC());
 
         Logger.getInstance().logInfo("Fachada: Sistema inicializado e subsistemas conectados.");
     }
@@ -41,20 +44,12 @@ public class FachadaSistema {
         sgu.cadastrarUsuario(id, nome, senha);
     }
 
-    public void processarLeitura(String idSHA, String caminhoImagens, String tipoMedidor) {
-        File diretorio = new File(caminhoImagens);
-        IProcessadorImagem adaptador;
+    public void iniciarMonitoramento() {
+        smc.iniciarMonitoramento();
+    }
 
-        if ("DIGITAL".equalsIgnoreCase(tipoMedidor)) {
-            adaptador = new AdaptadorMostradorDigital();
-        } else if ("ANALOGICO".equalsIgnoreCase(tipoMedidor)) {
-            adaptador = new AdaptadorMostradorAnalogico();
-        } else {
-            Logger.getInstance().logError("Fachada: Tipo de medidor desconhecido: " + tipoMedidor);
-            return;
-        }
-
-        smc.processarLeitura(idSHA, diretorio, adaptador);
+    public void pararMonitoramento() {
+        smc.pararMonitoramento();
     }
 
     public void configurarAlerta(String idUsuario, double limiteConsumo, String tipoNotificacao) {
