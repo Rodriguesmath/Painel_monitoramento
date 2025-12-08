@@ -24,6 +24,7 @@ public class FachadaSistema {
     public FachadaSistema() {
         this.sgu = new SGU();
         this.san = new SAN();
+        this.san.setSgu(this.sgu); // Inject SGU into SAN
         this.smc = new SMC();
 
         // Connect SMC to SAN (Observer Pattern)
@@ -34,6 +35,10 @@ public class FachadaSistema {
 
     public boolean autenticar(String usuario, String senha) {
         return sgu.autenticar(usuario, senha);
+    }
+
+    public void cadastrarUsuario(String id, String nome, String senha) {
+        sgu.cadastrarUsuario(id, nome, senha);
     }
 
     public void processarLeitura(String idSHA, String caminhoImagens, String tipoMedidor) {

@@ -29,6 +29,7 @@ public class PainelCLI {
                 System.out.println("1. Processar Leitura");
                 System.out.println("2. Configurar Alerta");
                 System.out.println("3. Gerar Relatório");
+                System.out.println("4. Cadastrar Usuário");
                 System.out.println("0. Sair");
                 System.out.print("Escolha uma opção: ");
 
@@ -59,6 +60,15 @@ public class PainelCLI {
                         System.out.print("ID do Usuário: ");
                         String idUserRel = scanner.nextLine();
                         fachada.gerarRelatorio(tipoRel, idUserRel);
+                        break;
+                    case "4":
+                        System.out.print("ID do Novo Usuário: ");
+                        String novoId = scanner.nextLine();
+                        System.out.print("Nome: ");
+                        String novoNome = scanner.nextLine();
+                        System.out.print("Senha: ");
+                        String novaSenha = scanner.nextLine();
+                        fachada.cadastrarUsuario(novoId, novoNome, novaSenha);
                         break;
                     case "0":
                         executando = false;
