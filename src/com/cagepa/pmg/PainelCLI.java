@@ -40,16 +40,14 @@ public class PainelCLI {
                             System.out.println("7. Atualizar Senha de Usuário");
                             System.out.println("8. Deletar Usuário");
                             System.out.println("9. Inspecionar Banco de Dados");
-                            System.out.println("10. Adicionar Diretório de Leitura");
-                            System.out.println("11. Verificar Status do Hidrômetro");
+                            System.out.println("10. Verificar Status do Hidrômetro");
                             System.out.println("0. Logout");
                         } else {
                             System.out.println("\n--- Menu Principal (PADRAO) ---");
                             System.out.println("1. Configurar Alerta Pessoal");
                             System.out.println("2. Gerar Relatório Pessoal");
                             System.out.println("3. Alterar Minha Senha");
-                            System.out.println("4. Adicionar Meu Diretório");
-                            System.out.println("5. Verificar Meu Status");
+                            System.out.println("4. Verificar Meu Status");
                             System.out.println("0. Logout");
                         }
                         System.out.print("Escolha uma opção: ");
@@ -119,11 +117,6 @@ public class PainelCLI {
                                     System.out.println(fachada.listarUsuariosRaw());
                                     break;
                                 case "10":
-                                    System.out.print("Caminho do diretório: ");
-                                    String path = scanner.nextLine();
-                                    fachada.adicionarDiretorioLeitura(path);
-                                    break;
-                                case "11":
                                     System.out.print("ID do Usuário: ");
                                     String idStat = scanner.nextLine();
                                     System.out.println("Status: " + fachada.getStatusHidrometro(idStat));
@@ -155,11 +148,6 @@ public class PainelCLI {
                                     fachada.atualizarSenha(usuario, novaSenha);
                                     break;
                                 case "4":
-                                    System.out.print("Caminho do diretório: ");
-                                    String path = scanner.nextLine();
-                                    fachada.adicionarDiretorioLeitura(path);
-                                    break;
-                                case "5":
                                     System.out.println("Status: " + fachada.getStatusHidrometro(usuario));
                                     break;
                                 case "0":

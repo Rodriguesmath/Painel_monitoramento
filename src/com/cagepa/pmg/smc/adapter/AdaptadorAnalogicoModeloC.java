@@ -86,4 +86,19 @@ public class AdaptadorAnalogicoModeloC implements IProcessadorImagem {
         }
         return leituras;
     }
+
+    @Override
+    public LeituraDados processarImagem(File imagem) {
+        String parentDir = imagem.getParentFile().getName();
+        String idSHA = null;
+
+        if (parentDir.startsWith("Img_")) {
+            idSHA = parentDir.substring(4); // Remove "Img_"
+        }
+
+        if (idSHA != null) {
+            return new LeituraDados(idSHA, imagem);
+        }
+        return null;
+    }
 }

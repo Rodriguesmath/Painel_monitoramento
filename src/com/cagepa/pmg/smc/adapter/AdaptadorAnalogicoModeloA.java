@@ -38,7 +38,8 @@ public class AdaptadorAnalogicoModeloA implements IProcessadorImagem {
     public double realizarOCR(File imagem) {
         // Try Tesseract first
         try {
-            ProcessBuilder pb = new ProcessBuilder("tesseract", imagem.getAbsolutePath(), "stdout", "--psm", "7");
+            // Try PSM 6 (Assume a single uniform block of text)
+            ProcessBuilder pb = new ProcessBuilder("tesseract", imagem.getAbsolutePath(), "stdout", "--psm", "6");
             Process p = pb.start();
 
             java.io.BufferedReader reader = new java.io.BufferedReader(
@@ -51,20 +52,48 @@ public class AdaptadorAnalogicoModeloA implements IProcessadorImagem {
 
             int exitCode = p.waitFor();
             if (exitCode == 0) {
-                String ocrResult = output.toString().replaceAll("[^0-9.]", "");
-                if (!ocrResult.isEmpty()) {
-                    double valor = Double.parseDouble(ocrResult);
+                String rawOutput = output.toString().trim();
+                Logger.getInstance().logInfo("Adapter A: Tesseract Raw Output: '" + rawOutput + "'");
+
+                // CLEANING STRATEGY:
+                // 1. Remove common noise separators that Tesseract inserts between digits
+                String cleaned = rawOutput.replaceAll("[/|\\\\.]", "");
+                // 2. Remove all non-digit characters
+                cleaned = cleaned.replaceAll("[^0-9]", "");
+
+                Logger.getInstance().logInfo("Adapter A: Limpeza: '" + rawOutput + "' -> '" + cleaned + "'");
+
+                // 3. Take the first 4 digits (Standard format: 0XXX)
+                if (cleaned.length() >= 4) {
+                    String numStr = cleaned.substring(0, 4);
+                    double valor = Double.parseDouble(numStr);
                     Logger.getInstance().logInfo(
                             "Adapter A: Tesseract OCR realizado em " + imagem.getName() + " -> Valor: " + valor);
                     return valor;
+                } else if (cleaned.length() > 0) {
+                    // Fallback for short numbers (unlikely but possible)
+                    double valor = Double.parseDouble(cleaned);
+                    Logger.getInstance().logInfo(
+                            "Adapter A: Tesseract OCR (parcial) em " + imagem.getName() + " -> Valor: " + valor);
+                    return valor;
+                } else {
+                    Logger.getInstance()
+                            .logInfo("Adapter A: Tesseract retornou vazio (após limpeza) para " + imagem.getName());
                 }
             } else {
-                Logger.getInstance()
-                        .logInfo("Adapter A: Tesseract falhou (exit code " + exitCode + "). Usando fallback.");
+                java.io.BufferedReader errorReader = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(p.getErrorStream()));
+                StringBuilder errorOutput = new StringBuilder();
+                String errorLine;
+                while ((errorLine = errorReader.readLine()) != null) {
+                    errorOutput.append(errorLine);
+                }
+                Logger.getInstance().logInfo(
+                        "Adapter A: Tesseract falhou (exit code " + exitCode + "). Erro: " + errorOutput.toString());
             }
         } catch (Exception e) {
-            Logger.getInstance()
-                    .logInfo("Adapter A: Tesseract não disponível ou erro (" + e.getMessage() + "). Usando fallback.");
+            Logger.getInstance().logInfo("Adapter A: Tesseract erro de execução: " + e.getMessage());
+            e.printStackTrace();
         }
 
         // Fallback: Parse filename: "01.jpeg" -> 1.0
@@ -189,5 +218,31 @@ public class AdaptadorAnalogicoModeloA implements IProcessadorImagem {
             }
         }
         return leituras;
+    }
+
+    @Override
+    public LeituraDados processarImagem(File imagem) {
+        // Validate file pattern (must be number.jpeg)
+        if (!imagem.getName().matches("\\d+\\.jpeg")) {
+            return null;
+        }
+
+        // Extract ID/SHA from parent directory: Medicoes_MATRICULA_ID
+        String parentDir = imagem.getParentFile().getName();
+        String idSHA = null;
+
+        // Try parsing "Medicoes_MATRICULA_ID"
+        if (parentDir.startsWith("Medicoes_")) {
+            String[] parts = parentDir.split("_");
+            if (parts.length >= 3) {
+                idSHA = parts[2]; // ID is the 3rd part
+            }
+        }
+
+        if (idSHA == null) {
+            return null;
+        }
+
+        return new LeituraDados(idSHA, imagem);
     }
 }

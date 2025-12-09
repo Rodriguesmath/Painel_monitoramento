@@ -12,4 +12,7 @@ public interface IProcessadorImagem {
 
     // Performs the actual OCR processing (potentially slow)
     double realizarOCR(java.io.File imagem);
+
+    // Process a single specific image file (for Event-Driven architecture)
+    LeituraDados processarImagem(java.io.File imagem);
 }
