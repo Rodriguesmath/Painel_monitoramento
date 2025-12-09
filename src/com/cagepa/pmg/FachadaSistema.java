@@ -9,6 +9,7 @@ import com.cagepa.pmg.sgr.GeradorRelatorio;
 import com.cagepa.pmg.sgr.RelatorioCSV;
 import com.cagepa.pmg.sgr.RelatorioPDF;
 import com.cagepa.pmg.sgu.SGU;
+import com.cagepa.pmg.sgu.TipoUsuario;
 import com.cagepa.pmg.smc.SMC;
 import com.cagepa.pmg.smc.adapter.AdaptadorAnalogicoModeloA;
 import com.cagepa.pmg.smc.adapter.AdaptadorAnalogicoModeloB;
@@ -40,8 +41,29 @@ public class FachadaSistema {
         return sgu.autenticar(usuario, senha);
     }
 
-    public void cadastrarUsuario(String id, String nome, String senha) {
-        sgu.cadastrarUsuario(id, nome, senha);
+    public TipoUsuario getTipoUsuario(String id) {
+        return sgu.getTipoUsuario(id);
+    }
+
+    public void cadastrarUsuario(String id, String nome, String senha, TipoUsuario tipo) {
+        sgu.cadastrarUsuario(id, nome, senha, tipo);
+    }
+
+    public java.util.List<com.cagepa.pmg.sgu.Usuario> listarUsuarios() {
+        return sgu.listarUsuarios();
+    }
+
+    public String listarUsuariosRaw() {
+        return sgu.listarUsuariosRaw();
+    }
+
+    public void atualizarUsuario(String id, String nome, String senha, TipoUsuario tipo) {
+        com.cagepa.pmg.sgu.Usuario u = new com.cagepa.pmg.sgu.Usuario(id, nome, senha, tipo);
+        sgu.atualizarUsuario(u);
+    }
+
+    public void deletarUsuario(String id) {
+        sgu.deletarUsuario(id);
     }
 
     public void iniciarMonitoramento() {

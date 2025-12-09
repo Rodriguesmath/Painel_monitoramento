@@ -31,25 +31,38 @@ public class AdaptadorAnalogicoModeloA implements IProcessadorImagem {
             return leituras;
 
         for (File arquivo : arquivos) {
-            if (arquivo.isDirectory() && arquivo.getName().startsWith("Medicao_")) {
-                // Check for valid images (0-100, jpg/jpeg/png)
-                boolean temImagensValidas = false;
-                for (int i = 0; i <= 100; i++) {
-                    File imgJpg = new File(arquivo, i + ".jpg");
-                    File imgJpeg = new File(arquivo, i + ".jpeg");
-                    File imgPng = new File(arquivo, i + ".png");
+            if (arquivo.isDirectory()) {
+                String nomeDir = arquivo.getName();
+                String idSHA = null;
 
-                    if (imgJpg.exists() || imgJpeg.exists() || imgPng.exists()) {
-                        temImagensValidas = true;
-                        break; // Found at least one valid image, proceed
+                if (nomeDir.startsWith("Medicao_")) {
+                    String[] parts = nomeDir.split("_");
+                    if (parts.length >= 2) {
+                        idSHA = parts[1];
+                    }
+                } else if (nomeDir.startsWith("Medições_")) {
+                    String[] parts = nomeDir.split("_");
+                    if (parts.length >= 2) {
+                        idSHA = parts[1];
                     }
                 }
 
-                if (temImagensValidas) {
-                    String[] parts = arquivo.getName().split("_");
-                    if (parts.length >= 2) {
-                        String idSHA = parts[1];
-                        Logger.getInstance().logInfo("Adapter A: Processando imagens (0-100) em " + arquivo.getName());
+                if (idSHA != null) {
+                    // Check for valid images (0-100, jpg/jpeg/png)
+                    boolean temImagensValidas = false;
+                    for (int i = 0; i <= 100; i++) {
+                        File imgJpg = new File(arquivo, i + ".jpg");
+                        File imgJpeg = new File(arquivo, i + ".jpeg");
+                        File imgPng = new File(arquivo, i + ".png");
+
+                        if (imgJpg.exists() || imgJpeg.exists() || imgPng.exists()) {
+                            temImagensValidas = true;
+                            break; // Found at least one valid image, proceed
+                        }
+                    }
+
+                    if (temImagensValidas) {
+                        Logger.getInstance().logInfo("Adapter A: Processando imagens (0-100) em " + nomeDir);
                         double valor = 100.0 + Math.random() * 50;
                         leituras.add(new LeituraDados(idSHA, valor));
                         Logger.getInstance().logInfo("Adapter A: Leitura concluída para " + idSHA);

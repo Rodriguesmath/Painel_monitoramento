@@ -7,21 +7,27 @@ public class Usuario {
     private String id;
     private String nome;
     private String senha;
-    private List<String> shas;
+    private TipoUsuario tipo;
+    private List<String> shasAssociados;
 
-    public Usuario(String id, String nome, String senha) {
+    public Usuario(String id, String nome, String senha, TipoUsuario tipo) {
         this.id = id;
         this.nome = nome;
         this.senha = senha;
-        this.shas = new ArrayList<>();
+        this.tipo = tipo;
+        this.shasAssociados = new ArrayList<>();
+    }
+
+    public String getSenha() {
+        return senha;
     }
 
     public void adicionarSha(String idSha) {
-        this.shas.add(idSha);
+        this.shasAssociados.add(idSha);
     }
 
     public boolean possuiSha(String idSha) {
-        return this.shas.contains(idSha);
+        return this.shasAssociados.contains(idSha);
     }
 
     public String getId() {
@@ -36,7 +42,13 @@ public class Usuario {
         return this.senha.equals(senha);
     }
 
+    public TipoUsuario getTipo() {
+        return tipo;
+    }
+
     public List<String> getShas() {
-        return new ArrayList<>(shas);
+        List<String> shas = new ArrayList<>(shasAssociados);
+        shas.add(id); // Automatically associate ID as a SHA
+        return shas;
     }
 }
