@@ -8,13 +8,27 @@ public class Usuario {
     private String nome;
     private String senha;
     private TipoUsuario tipo;
+    private String modeloAdapter; // New field
+    private double consumoAtual; // New field
     private List<String> shasAssociados;
 
-    public Usuario(String id, String nome, String senha, TipoUsuario tipo) {
+    public Usuario(String id, String nome, String senha, TipoUsuario tipo, String modeloAdapter) {
         this.id = id;
         this.nome = nome;
         this.senha = senha;
         this.tipo = tipo;
+        this.modeloAdapter = modeloAdapter;
+        this.consumoAtual = 0.0;
+        this.shasAssociados = new ArrayList<>();
+    }
+
+    public Usuario(String id, String nome, String senha, TipoUsuario tipo, String modeloAdapter, double consumoAtual) {
+        this.id = id;
+        this.nome = nome;
+        this.senha = senha;
+        this.tipo = tipo;
+        this.modeloAdapter = modeloAdapter;
+        this.consumoAtual = consumoAtual;
         this.shasAssociados = new ArrayList<>();
     }
 
@@ -44,6 +58,18 @@ public class Usuario {
 
     public TipoUsuario getTipo() {
         return tipo;
+    }
+
+    public String getModeloAdapter() {
+        return modeloAdapter;
+    }
+
+    public double getConsumoAtual() {
+        return consumoAtual;
+    }
+
+    public void setConsumoAtual(double consumoAtual) {
+        this.consumoAtual = consumoAtual;
     }
 
     public List<String> getShas() {

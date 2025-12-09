@@ -45,8 +45,8 @@ public class FachadaSistema {
         return sgu.getTipoUsuario(id);
     }
 
-    public void cadastrarUsuario(String id, String nome, String senha, TipoUsuario tipo) {
-        sgu.cadastrarUsuario(id, nome, senha, tipo);
+    public void cadastrarUsuario(String id, String nome, String senha, TipoUsuario tipo, String modeloAdapter) {
+        sgu.cadastrarUsuario(id, nome, senha, tipo, modeloAdapter);
     }
 
     public java.util.List<com.cagepa.pmg.sgu.Usuario> listarUsuarios() {
@@ -57,9 +57,8 @@ public class FachadaSistema {
         return sgu.listarUsuariosRaw();
     }
 
-    public void atualizarUsuario(String id, String nome, String senha, TipoUsuario tipo) {
-        com.cagepa.pmg.sgu.Usuario u = new com.cagepa.pmg.sgu.Usuario(id, nome, senha, tipo);
-        sgu.atualizarUsuario(u);
+    public void atualizarSenha(String id, String novaSenha) {
+        sgu.atualizarSenha(id, novaSenha);
     }
 
     public void deletarUsuario(String id) {
@@ -72,6 +71,14 @@ public class FachadaSistema {
 
     public void pararMonitoramento() {
         smc.pararMonitoramento();
+    }
+
+    public void adicionarDiretorioLeitura(String path) {
+        smc.adicionarDiretorioLeitura(path);
+    }
+
+    public String getStatusHidrometro(String idUsuario) {
+        return smc.getStatusHidrometro(idUsuario);
     }
 
     public void configurarAlerta(String idUsuario, double limiteConsumo, String tipoNotificacao) {

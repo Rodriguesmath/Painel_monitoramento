@@ -15,20 +15,22 @@ public class SGU {
         ConexaoDB.inicializarBanco();
         // Ensure admin exists
         if (getUsuarioPorId("admin") == null) {
-            cadastrarUsuario("admin", "Administrador", "admin", TipoUsuario.ADMIN);
+            cadastrarUsuario("admin", "Administrador", "admin", TipoUsuario.ADMIN, "A"); // Default admin to A
         }
     }
 
-    public void cadastrarUsuario(String id, String nome, String senha, TipoUsuario tipo) {
-        String sql = "INSERT INTO usuarios(id, nome, senha, tipo) VALUES(?, ?, ?, ?)";
+    public void cadastrarUsuario(String id, String nome, String senha, TipoUsuario tipo, String modeloAdapter) {
+        String sql = "INSERT INTO usuarios(id, nome, senha, tipo, modelo_adapter) VALUES(?, ?, ?, ?, ?)";
         try (Connection conn = ConexaoDB.conectar();
                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, id);
             pstmt.setString(2, nome);
             pstmt.setString(3, senha);
             pstmt.setString(4, tipo.name());
+            pstmt.setString(5, modeloAdapter);
             pstmt.executeUpdate();
-            Logger.getInstance().logInfo("SGU: Usuário cadastrado com sucesso: " + nome + " (" + id + ")");
+            Logger.getInstance().logInfo(
+                    "SGU: Usuário cadastrado com sucesso: " + nome + " (" + id + ") - Modelo: " + modeloAdapter);
         } catch (SQLException e) {
             Logger.getInstance().logError("SGU: Erro ao cadastrar usuário: " + e.getMessage());
         }
@@ -59,8 +61,22 @@ public class SGU {
         return u != null ? u.getTipo() : null;
     }
 
+    public void atualizarConsumo(String id, double consumo) {
+        String sql = "UPDATE usuarios SET consumo_atual = ? WHERE id = ?";
+        try (Connection conn = ConexaoDB.conectar();
+                PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setDouble(1, consumo);
+            pstmt.setString(2, id);
+            pstmt.executeUpdate();
+            // Logger.getInstance().logInfo("SGU: Consumo atualizado para usuário " + id +
+            // ": " + consumo);
+        } catch (SQLException e) {
+            Logger.getInstance().logError("SGU: Erro ao atualizar consumo: " + e.getMessage());
+        }
+    }
+
     public Usuario getUsuarioPorId(String id) {
-        String sql = "SELECT id, nome, senha, tipo FROM usuarios WHERE id = ?";
+        String sql = "SELECT id, nome, senha, tipo, modelo_adapter, consumo_atual FROM usuarios WHERE id = ?";
         try (Connection conn = ConexaoDB.conectar();
                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, id);
@@ -70,7 +86,9 @@ public class SGU {
                         rs.getString("id"),
                         rs.getString("nome"),
                         rs.getString("senha"),
-                        TipoUsuario.valueOf(rs.getString("tipo")));
+                        TipoUsuario.valueOf(rs.getString("tipo")),
+                        rs.getString("modelo_adapter"),
+                        rs.getDouble("consumo_atual"));
             }
         } catch (SQLException e) {
             Logger.getInstance().logError("SGU: Erro ao buscar usuário: " + e.getMessage());
@@ -80,7 +98,7 @@ public class SGU {
 
     public List<Usuario> listarUsuarios() {
         List<Usuario> lista = new ArrayList<>();
-        String sql = "SELECT id, nome, senha, tipo FROM usuarios";
+        String sql = "SELECT id, nome, senha, tipo, modelo_adapter, consumo_atual FROM usuarios";
         try (Connection conn = ConexaoDB.conectar();
                 PreparedStatement pstmt = conn.prepareStatement(sql);
                 ResultSet rs = pstmt.executeQuery()) {
@@ -89,7 +107,9 @@ public class SGU {
                         rs.getString("id"),
                         rs.getString("nome"),
                         rs.getString("senha"),
-                        TipoUsuario.valueOf(rs.getString("tipo"))));
+                        TipoUsuario.valueOf(rs.getString("tipo")),
+                        rs.getString("modelo_adapter"),
+                        rs.getDouble("consumo_atual")));
             }
         } catch (SQLException e) {
             Logger.getInstance().logError("SGU: Erro ao listar usuários: " + e.getMessage());
@@ -103,14 +123,17 @@ public class SGU {
         try (Connection conn = ConexaoDB.conectar();
                 PreparedStatement pstmt = conn.prepareStatement(sql);
                 ResultSet rs = pstmt.executeQuery()) {
-            sb.append(String.format("%-10s %-20s %-10s %-10s%n", "ID", "NOME", "SENHA", "TIPO"));
-            sb.append("------------------------------------------------------------\n");
+            sb.append(String.format("%-10s %-20s %-10s %-10s %-10s %-10s%n", "ID", "NOME", "SENHA", "TIPO", "MODELO",
+                    "CONSUMO"));
+            sb.append("------------------------------------------------------------------------------------------\n");
             while (rs.next()) {
-                sb.append(String.format("%-10s %-20s %-10s %-10s%n",
+                sb.append(String.format("%-10s %-20s %-10s %-10s %-10s %-10.2f%n",
                         rs.getString("id"),
                         rs.getString("nome"),
                         rs.getString("senha"),
-                        rs.getString("tipo")));
+                        rs.getString("tipo"),
+                        rs.getString("modelo_adapter"),
+                        rs.getDouble("consumo_atual")));
             }
         } catch (SQLException e) {
             return "Erro ao inspecionar DB: " + e.getMessage();
@@ -118,34 +141,16 @@ public class SGU {
         return sb.toString();
     }
 
-    public void atualizarUsuario(Usuario u) {
-        String sql = "UPDATE usuarios SET nome = ?, senha = ?, tipo = ? WHERE id = ?";
+    public void atualizarSenha(String id, String novaSenha) {
+        String sql = "UPDATE usuarios SET senha = ? WHERE id = ?";
         try (Connection conn = ConexaoDB.conectar();
                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, u.getNome());
-            // Wait, Usuario doesn't expose getSenha. Let's fix this or assume we pass
-            // fields.
-            // For now, let's assume we can't update password easily without changing
-            // Usuario.
-            // Actually, let's just update Name and Type for now to be safe, or add getSenha
-            // to Usuario.
-            // Let's add getSenha to Usuario in a separate step if needed.
-            // For this step, I will assume I need to pass the password explicitly or modify
-            // Usuario.
-            // Let's modify the method signature to take fields instead of object for
-            // clarity.
-            // But the interface said atualizarUsuario(Usuario u).
-            // I will implement a helper method in SGU that takes fields.
-            // Let's stick to the plan: atualizarUsuario(Usuario u). I need to add getSenha
-            // to Usuario.
-            // I'll assume I can add getSenha to Usuario in the next step.
-            pstmt.setString(2, u.getSenha());
-            pstmt.setString(3, u.getTipo().name());
-            pstmt.setString(4, u.getId());
+            pstmt.setString(1, novaSenha);
+            pstmt.setString(2, id);
             pstmt.executeUpdate();
-            Logger.getInstance().logInfo("SGU: Usuário atualizado: " + u.getId());
+            Logger.getInstance().logInfo("SGU: Senha atualizada para usuário: " + id);
         } catch (SQLException e) {
-            Logger.getInstance().logError("SGU: Erro ao atualizar usuário: " + e.getMessage());
+            Logger.getInstance().logError("SGU: Erro ao atualizar senha: " + e.getMessage());
         }
     }
 

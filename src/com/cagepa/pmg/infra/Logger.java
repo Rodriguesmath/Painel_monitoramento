@@ -7,8 +7,15 @@ public class Logger {
     private static Logger instance;
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
+    private java.io.PrintWriter logWriter;
+
     private Logger() {
-        // Private constructor to prevent instantiation
+        try {
+            // Append mode
+            logWriter = new java.io.PrintWriter(new java.io.FileWriter("system.log", true), true);
+        } catch (java.io.IOException e) {
+            System.err.println("CRITICAL: Failed to open system.log: " + e.getMessage());
+        }
     }
 
     public static synchronized Logger getInstance() {
@@ -19,10 +26,14 @@ public class Logger {
     }
 
     public void logInfo(String message) {
-        System.out.println("[INFO] " + LocalDateTime.now().format(formatter) + " - " + message);
+        if (logWriter != null) {
+            logWriter.println("[INFO] " + LocalDateTime.now().format(formatter) + " - " + message);
+        }
     }
 
     public void logError(String message) {
-        System.err.println("[ERROR] " + LocalDateTime.now().format(formatter) + " - " + message);
+        if (logWriter != null) {
+            logWriter.println("[ERROR] " + LocalDateTime.now().format(formatter) + " - " + message);
+        }
     }
 }

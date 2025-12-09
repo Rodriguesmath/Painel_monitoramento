@@ -27,6 +27,15 @@ public class SMC {
         this.adaptadores.add(adaptador);
     }
 
+    public void adicionarDiretorioLeitura(String path) {
+        Logger.getInstance().logInfo("SMC: Adicionando novo diretório de leitura: " + path);
+        for (IProcessadorImagem adaptador : adaptadores) {
+            adaptador.adicionarDiretorio(path);
+        }
+    }
+
+    private java.util.concurrent.ExecutorService executor;
+
     public void iniciarMonitoramento() {
         if (monitorando) {
             Logger.getInstance().logInfo("SMC: Monitoramento já está em execução.");
@@ -36,6 +45,7 @@ public class SMC {
         Logger.getInstance().logInfo("SMC: Iniciando monitoramento contínuo...");
         monitorando = true;
         scheduler = Executors.newSingleThreadScheduledExecutor();
+        executor = Executors.newFixedThreadPool(5); // Pool of 5 threads for parallel OCR
 
         // Poll every 5 seconds
         scheduler.scheduleAtFixedRate(this::cicloMonitoramento, 0, 5, TimeUnit.SECONDS);
@@ -45,6 +55,9 @@ public class SMC {
         if (monitorando && scheduler != null) {
             Logger.getInstance().logInfo("SMC: Parando monitoramento...");
             scheduler.shutdown();
+            if (executor != null) {
+                executor.shutdown();
+            }
             monitorando = false;
         }
     }
@@ -52,9 +65,22 @@ public class SMC {
     private void cicloMonitoramento() {
         for (IProcessadorImagem adaptador : adaptadores) {
             try {
+                // Get pending readings (with files, no values yet)
                 List<LeituraDados> novasLeituras = adaptador.processarNovasImagens();
+
                 for (LeituraDados leitura : novasLeituras) {
-                    processarLeituraIndividual(leitura);
+                    // Submit OCR task to thread pool
+                    executor.submit(() -> {
+                        try {
+                            Logger.getInstance().logInfo("SMC: Iniciando OCR paralelo para " + leitura.getIdSHA());
+                            double valor = adaptador.realizarOCR(leitura.getImagem());
+                            leitura.setValor(valor);
+                            processarLeituraIndividual(leitura);
+                        } catch (Exception e) {
+                            Logger.getInstance()
+                                    .logError("SMC: Erro no OCR para " + leitura.getIdSHA() + ": " + e.getMessage());
+                        }
+                    });
                 }
             } catch (Exception e) {
                 Logger.getInstance().logError("SMC: Erro no ciclo de monitoramento: " + e.getMessage());
@@ -62,11 +88,15 @@ public class SMC {
         }
     }
 
+    private com.cagepa.pmg.sgu.SGU sgu = new com.cagepa.pmg.sgu.SGU();
+
     private void processarLeituraIndividual(LeituraDados dados) {
-        LeituraContext context = new LeituraContext(dados.getIdSHA());
+        // Update user consumption in DB
+        sgu.atualizarConsumo(dados.getIdSHA(), dados.getValor());
+
+        LeituraContext context = new LeituraContext(dados);
         try {
             context.processar(); // State: Processing
-            context.setValorLeitura(dados.getValor());
             context.concluir(); // State: Completed
 
             // Observer: Notify SAN
@@ -74,6 +104,21 @@ public class SMC {
         } catch (Exception e) {
             context.reportarErro(e.getMessage());
         }
+    }
+
+    public String getStatusHidrometro(String idUsuario) {
+        com.cagepa.pmg.sgu.Usuario u = sgu.getUsuarioPorId(idUsuario);
+        if (u == null)
+            return "USUÁRIO NÃO ENCONTRADO";
+
+        if ("A".equalsIgnoreCase(u.getModeloAdapter())) {
+            for (IProcessadorImagem adapter : adaptadores) {
+                if (adapter instanceof com.cagepa.pmg.smc.adapter.AdaptadorAnalogicoModeloA) {
+                    return ((com.cagepa.pmg.smc.adapter.AdaptadorAnalogicoModeloA) adapter).verificarStatus(idUsuario);
+                }
+            }
+        }
+        return "DESCONHECIDO (Modelo não suporta status)";
     }
 
     private void notificarObservers(String idSHA, double valor) {

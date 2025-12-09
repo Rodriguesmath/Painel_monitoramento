@@ -13,6 +13,13 @@ public class LeituraContext {
         Logger.getInstance().logInfo("SMC (State): Nova leitura iniciada para SHA " + idSHA);
     }
 
+    public LeituraContext(com.cagepa.pmg.smc.adapter.LeituraDados dados) {
+        this.idSHA = dados.getIdSHA();
+        this.valorLeitura = dados.getValor();
+        this.estadoAtual = new EstadoProcessando();
+        Logger.getInstance().logInfo("SMC (State): Nova leitura iniciada para SHA " + idSHA);
+    }
+
     public void setEstado(EstadoLeitura novoEstado) {
         this.estadoAtual = novoEstado;
         Logger.getInstance().logInfo("SMC (State): Transição de estado para " + novoEstado.getClass().getSimpleName());

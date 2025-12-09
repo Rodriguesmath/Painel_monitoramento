@@ -22,12 +22,27 @@ public class ConexaoDB {
                 "id TEXT PRIMARY KEY," +
                 "nome TEXT NOT NULL," +
                 "senha TEXT NOT NULL," +
-                "tipo TEXT NOT NULL" +
+                "tipo TEXT NOT NULL," +
+                "modelo_adapter TEXT" + // New column
                 ");";
 
         try (Connection conn = conectar();
                 Statement stmt = conn.createStatement()) {
             stmt.execute(sql);
+
+            // Migration for existing tables without the column
+            try {
+                stmt.execute("ALTER TABLE usuarios ADD COLUMN modelo_adapter TEXT");
+            } catch (SQLException e) {
+                // Column likely already exists, ignore
+            }
+
+            try {
+                stmt.execute("ALTER TABLE usuarios ADD COLUMN consumo_atual REAL DEFAULT 0.0");
+            } catch (SQLException e) {
+                // Column likely already exists, ignore
+            }
+
             Logger.getInstance().logInfo("Banco de dados inicializado com sucesso.");
         } catch (SQLException e) {
             Logger.getInstance().logError("Erro ao inicializar banco de dados: " + e.getMessage());

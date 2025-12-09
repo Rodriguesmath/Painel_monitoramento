@@ -6,44 +6,80 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class AdaptadorAnalogicoModeloC implements IProcessadorImagem {
-    private final File diretorioMonitorado;
+    private final List<File> diretoriosMonitorados;
 
     public AdaptadorAnalogicoModeloC() {
-        this.diretorioMonitorado = new File("input/modeloC");
-        if (!this.diretorioMonitorado.exists()) {
-            this.diretorioMonitorado.mkdirs();
+        this.diretoriosMonitorados = new ArrayList<>();
+        adicionarDiretorio("input/modeloC");
+    }
+
+    @Override
+    public void adicionarDiretorio(String path) {
+        File dir = new File(path);
+        if (!dir.exists()) {
+            dir.mkdirs();
         }
+        if (!diretoriosMonitorados.contains(dir)) {
+            diretoriosMonitorados.add(dir);
+            Logger.getInstance().logInfo("Adapter C: Diretório adicionado: " + path);
+        }
+    }
+
+    @Override
+    public void removerDiretorio(String path) {
+        File dir = new File(path);
+        if (diretoriosMonitorados.remove(dir)) {
+            Logger.getInstance().logInfo("Adapter C: Diretório removido: " + path);
+        }
+    }
+
+    @Override
+    public double realizarOCR(File imagem) {
+        try {
+            Thread.sleep(500 + (long) (Math.random() * 1000));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        Logger.getInstance().logInfo("Adapter C: OCR realizado em " + imagem.getName());
+        return 300.0 + Math.random() * 50;
     }
 
     @Override
     public List<LeituraDados> processarNovasImagens() {
         List<LeituraDados> leituras = new ArrayList<>();
-        File[] arquivos = diretorioMonitorado.listFiles();
-        if (arquivos == null)
-            return leituras;
+        com.cagepa.pmg.sgu.SGU sgu = new com.cagepa.pmg.sgu.SGU();
 
-        for (File arquivo : arquivos) {
-            if (arquivo.isDirectory() && arquivo.getName().startsWith("Img_")) {
-                // Check for valid images (0-100, jpg/jpeg/png)
-                boolean temImagensValidas = false;
-                for (int i = 0; i <= 100; i++) {
-                    File imgJpg = new File(arquivo, i + ".jpg");
-                    File imgJpeg = new File(arquivo, i + ".jpeg");
-                    File imgPng = new File(arquivo, i + ".png");
+        for (File diretorio : diretoriosMonitorados) {
+            if (!diretorio.exists() || !diretorio.isDirectory()) {
+                continue;
+            }
 
-                    if (imgJpg.exists() || imgJpeg.exists() || imgPng.exists()) {
-                        temImagensValidas = true;
-                        break;
-                    }
-                }
+            File[] arquivos = diretorio.listFiles();
+            if (arquivos == null)
+                continue;
 
-                if (temImagensValidas) {
+            for (File arquivo : arquivos) {
+                if (arquivo.isDirectory() && arquivo.getName().startsWith("Img_")) {
                     String[] parts = arquivo.getName().split("_");
                     if (parts.length >= 2) {
                         String idSHA = parts[1];
-                        Logger.getInstance().logInfo("Adapter C: Processando imagens (0-100) em " + arquivo.getName());
-                        double valor = 300.0 + Math.random() * 50;
-                        leituras.add(new LeituraDados(idSHA, valor));
+                        com.cagepa.pmg.sgu.Usuario u = sgu.getUsuarioPorId(idSHA);
+                        if (u == null || !"C".equalsIgnoreCase(u.getModeloAdapter())) {
+                            continue;
+                        }
+
+                        File[] imagens = arquivo.listFiles((dir, name) -> name.toLowerCase().endsWith(".jpg") ||
+                                name.toLowerCase().endsWith(".jpeg") ||
+                                name.toLowerCase().endsWith(".png"));
+
+                        if (imagens != null && imagens.length > 0) {
+                            java.util.Arrays.sort(imagens,
+                                    (f1, f2) -> Long.compare(f2.lastModified(), f1.lastModified()));
+                            File maisRecente = imagens[0];
+                            Logger.getInstance().logInfo("Adapter C: Imagem mais recente encontrada: "
+                                    + maisRecente.getName() + " para " + idSHA);
+                            leituras.add(new LeituraDados(idSHA, maisRecente));
+                        }
                     }
                 }
             }
