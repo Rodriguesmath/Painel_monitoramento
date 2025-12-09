@@ -12,47 +12,48 @@ Sistema de monitoramento automatizado para leitura de hidrômetros, estruturado 
 O progresso abaixo reflete a implementação de funcionalidades **reais** (produção). Funcionalidades simuladas (mocks) são contabilizadas como 0%.
 
 ### 👤 SGU - Sistema de Gerenciamento de Usuários
-**Progresso:** 10%
-`█░░░░░░░░░`
-> O sistema possui a estrutura de classes e gerenciamento em memória, mas carece de persistência real e autenticação segura.
+**Progresso:** 80%
+`████████░░`
+> Persistência real (SQLite) e RBAC implementados. Faltam testes unitários e validações de segurança mais robustas.
 - [x] Estrutura de Classes (`Usuario`, `SGU`)
-- [x] Cadastro em Memória
-- [ ] Persistência (Banco de Dados)
-- [ ] Criptografia e Autenticação Real
+- [x] Cadastro e Persistência (SQLite)
+- [x] Autenticação e RBAC (Admin/Padrão)
+- [ ] Testes Unitários Automatizado
 
 ### 📷 SMC - Sistema de Monitoramento e Controle
 **Progresso:** 40%
 `████░░░░░░`
-> O núcleo de monitoramento e a varredura de arquivos são reais. O processamento da imagem (leitura do valor) é simulado.
-- [x] Loop de Monitoramento Contínuo (Thread)
-- [x] Adapters com Varredura de Diretórios e Validação de Arquivos
+> A arquitetura (State, Observer) e varredura de pastas são reais. **O processamento de imagem (OCR) é MOCK (simulado).**
+- [x] Loop de Monitoramento Contínuo
+- [x] Adapters e Varredura de Diretórios
 - [x] Padrões State e Observer
-- [ ] Processamento de Imagem (OCR/Computer Vision)
+- [ ] **Processamento de Imagem Real (OCR)**
 
 ### 🔔 SAN - Sistema de Alerta e Notificação
 **Progresso:** 20%
 `██░░░░░░░░`
-> A lógica de detecção de anomalias funciona, mas o envio das notificações é apenas logado no console.
-- [x] Regras de Negócio (Limites de Consumo)
-- [x] Estrutura Strategy (`Email`, `SMS`)
-- [ ] Integração com Servidor SMTP (E-mail Real)
-- [ ] Integração com Gateway SMS (SMS Real)
+> A lógica de detecção funciona. **O envio de E-mail e SMS é MOCK (apenas log).**
+- [x] Regras de Negócio (Limites)
+- [x] Estrutura Strategy
+- [ ] **Envio Real de E-mail (SMTP)**
+- [ ] **Envio Real de SMS (Gateway)**
 
 ### 📊 SGR - Sistema de Geração de Relatórios
-**Progresso:** 5%
-`▌░░░░░░░░░`
-> A estrutura está pronta, mas a geração física dos arquivos (PDF/CSV) ainda é simulada.
+**Progresso:** 10%
+`█░░░░░░░░░`
+> Estrutura Template Method definida. **A geração dos arquivos físicos (PDF/CSV) é MOCK.**
 - [x] Estrutura Template Method
-- [ ] Biblioteca de Geração de PDF (iText/PDFBox)
-- [ ] Escrita de Arquivo CSV Real
+- [ ] **Geração de Arquivo PDF Real**
+- [ ] **Geração de Arquivo CSV Real**
 
 ### 🖥️ Infraestrutura (CLI & Fachada)
-**Progresso:** 90%
-`█████████░`
-> A interface e a orquestração estão quase completas para o escopo atual.
+**Progresso:** 80%
+`████████░░`
+> Interface funcional e integrada.
 - [x] CLI Interativa
 - [x] Fachada (Facade Pattern)
-- [x] Sistema de Logs (Singleton)
+- [x] Sistema de Logs
+- [ ] Tratamento de Exceções Complexas
 
 ---
 *Desenvolvido como projeto final da disciplina de padrões de projeto no Campus Campina Grande do IFPB.*
