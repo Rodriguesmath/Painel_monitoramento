@@ -22,6 +22,15 @@ public class SMC {
     private boolean monitorando = false;
     private java.util.concurrent.ExecutorService executor;
 
+    public SMC() {
+        try {
+            this.watcher = java.nio.file.FileSystems.getDefault().newWatchService();
+            this.keys = new java.util.HashMap<>();
+        } catch (java.io.IOException e) {
+            Logger.getInstance().logError("SMC: Falha ao iniciar WatchService: " + e.getMessage());
+        }
+    }
+
     public void addObserver(SAN san) {
         observers.add(san);
     }
@@ -36,20 +45,14 @@ public class SMC {
             return;
         }
 
-        try {
-            this.watcher = java.nio.file.FileSystems.getDefault().newWatchService();
-            this.keys = new java.util.HashMap<>();
-        } catch (java.io.IOException e) {
-            Logger.getInstance().logError("SMC: Falha ao iniciar WatchService: " + e.getMessage());
+        if (this.watcher == null) {
+            Logger.getInstance().logError("SMC: WatchService não inicializado. Abortando.");
             return;
         }
 
         Logger.getInstance().logInfo("SMC: Iniciando monitoramento SÍNCRONO (WatchService)...");
         monitorando = true;
         executor = Executors.newFixedThreadPool(5);
-
-        // AUTO-REGISTER DEFAULT DIRECTORY (Hardcoded for Modelo A / Simulator)
-        adicionarDiretorioLeitura("/home/rodrigues/Documentos/Painel_monitoramento/Simulador-Hidrometro");
 
         // Start the event loop in a separate thread
         new Thread(this::processEvents).start();
