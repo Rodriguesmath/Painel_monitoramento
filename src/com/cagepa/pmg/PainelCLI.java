@@ -3,8 +3,52 @@ package com.cagepa.pmg;
 import com.cagepa.pmg.sgu.TipoUsuario;
 import java.util.Scanner;
 import java.util.List;
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintWriter;
+import br.com.simulador.fachada.HidrometroFachada;
 
 public class PainelCLI {
+    private static Process cppProcess;
+    private static PrintWriter cppWriter;
+
+    private static void startCppSim() {
+        if (cppProcess == null || !cppProcess.isAlive()) {
+            try {
+                ProcessBuilder pb = new ProcessBuilder("./hidrometro_sim");
+                pb.directory(new File("Simulador-Hidrometro-B"));
+                pb.redirectErrorStream(true);
+                pb.redirectOutput(new File("cpp_sim.log"));
+                cppProcess = pb.start();
+                cppWriter = new PrintWriter(cppProcess.getOutputStream(), true);
+                System.out.println("Simulador C++ iniciado.");
+            } catch (IOException e) {
+                System.out.println("Erro ao iniciar Simulador C++: " + e.getMessage());
+            }
+        }
+    }
+
+    private static void createCppSim(String id) {
+        startCppSim();
+        if (cppWriter != null) {
+            System.out.println("Criando simulador C++ para: " + id);
+            cppWriter.println("create " + id);
+            cppWriter.println("image " + id);
+            cppWriter.println("flow " + id + " 10.0");
+        }
+    }
+
+    private static void stopCppSim() {
+        if (cppProcess != null && cppProcess.isAlive()) {
+            if (cppWriter != null)
+                cppWriter.println("exit");
+            cppProcess.destroy();
+            cppProcess = null;
+            cppWriter = null;
+            System.out.println("Simulador C++ finalizado.");
+        }
+    }
+
     public static void main(String[] args) {
         FachadaSistema fachada = new FachadaSistema();
         Scanner scanner = new Scanner(System.in);
@@ -56,6 +100,27 @@ public class PainelCLI {
                         if (tipo == TipoUsuario.ADMIN) {
                             switch (opcao) {
                                 case "1":
+                                    // Auto-launch simulator for Type A users
+                                    List<com.cagepa.pmg.sgu.Usuario> allUsers = fachada.listarUsuarios();
+                                    for (com.cagepa.pmg.sgu.Usuario u : allUsers) {
+                                        if ("A".equalsIgnoreCase(u.getModeloAdapter())) {
+                                            System.out.println("Iniciando simulador para usuário: " + u.getNome()
+                                                    + " (ID: " + u.getId() + ")");
+                                            // Configure the simulator to look for config in the correct place if
+                                            // needed,
+                                            // or just launch it. The simulator uses "config/config.txt" by default
+                                            // relative to execution.
+                                            // We might need to adjust the config path if running from a different dir.
+                                            // For now, let's assume the default is fine or we set it.
+                                            HidrometroFachada.getInstancia()
+                                                    .configSimuladorSHA("Simulador-Hidrometro-A/config/config.txt");
+                                            HidrometroFachada.getInstancia().setOutputDir("Simulador-Hidrometro-A");
+                                            HidrometroFachada.getInstancia()
+                                                    .criaSHA(u.getId());
+                                        } else if ("B".equalsIgnoreCase(u.getModeloAdapter())) {
+                                            createCppSim(u.getId());
+                                        }
+                                    }
                                     fachada.iniciarMonitoramento();
                                     break;
                                 case "2":
@@ -91,6 +156,16 @@ public class PainelCLI {
                                     System.out.print("Modelo do Adaptador (A/B/C): ");
                                     String nModelo = scanner.nextLine();
                                     fachada.cadastrarUsuario(nId, nNome, nSenha, nTipo, nModelo);
+                                    if ("A".equalsIgnoreCase(nModelo)) {
+                                        System.out.println("Iniciando simulador para o novo usuário...");
+                                        HidrometroFachada.getInstancia()
+                                                .configSimuladorSHA("Simulador-Hidrometro-A/config/config.txt");
+                                        HidrometroFachada.getInstancia().setOutputDir("Simulador-Hidrometro-A");
+                                        HidrometroFachada.getInstancia()
+                                                .criaSHA(nId);
+                                    } else if ("B".equalsIgnoreCase(nModelo)) {
+                                        createCppSim(nId);
+                                    }
                                     break;
                                 case "6":
                                     System.out.println("--- Lista de Usuários ---");
@@ -123,6 +198,7 @@ public class PainelCLI {
                                     break;
                                 case "0":
                                     logado = false;
+                                    stopCppSim();
                                     break;
                                 default:
                                     System.out.println("Opção inválida.");

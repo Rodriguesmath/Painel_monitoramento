@@ -1,3 +1,9 @@
 /bin
-/Simulador-Hidrometro
+/Simulador-Hidrometro-A
 run_sync_demo.sh
+cpp_sim.log
+run_integrated_demo.sh
+/Simulador-Hidrometro-B
+run_sync_demo.sh
+cpp_sim.log
+run_integrated_demo.sh

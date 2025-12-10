@@ -11,6 +11,8 @@ public class AdaptadorAnalogicoModeloB implements IProcessadorImagem {
     public AdaptadorAnalogicoModeloB() {
         this.diretoriosMonitorados = new ArrayList<>();
         adicionarDiretorio("input/modeloB");
+        // Also monitor the actual simulator output directory
+        adicionarDiretorio("Simulador-Hidrometro-B");
     }
 
     @Override
@@ -35,13 +37,125 @@ public class AdaptadorAnalogicoModeloB implements IProcessadorImagem {
 
     @Override
     public double realizarOCR(File imagem) {
+        File tempImage = null;
         try {
-            Thread.sleep(500 + (long) (Math.random() * 1000));
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            // Preprocess image: Crop to ROI and convert to grayscale
+            tempImage = preprocessarImagem(imagem);
+
+            // Use PSM 7 (Treat the image as a single text line)
+            // Configure whitelist to only allow digits
+            ProcessBuilder pb = new ProcessBuilder(
+                    "tesseract",
+                    tempImage.getAbsolutePath(),
+                    "stdout",
+                    "--psm", "7",
+                    "-c", "tessedit_char_whitelist=0123456789");
+            Process p = pb.start();
+
+            java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(p.getInputStream()));
+            StringBuilder output = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                output.append(line);
+            }
+
+            int exitCode = p.waitFor();
+            if (exitCode == 0) {
+                String rawOutput = output.toString().trim();
+                Logger.getInstance().logInfo("Adapter B: Tesseract Raw Output: '" + rawOutput + "'");
+
+                // CLEANING STRATEGY:
+                // 1. Remove common noise separators
+                String cleaned = rawOutput.replaceAll("[/|\\\\.]", "");
+                // 2. Remove all non-digit characters
+                cleaned = cleaned.replaceAll("[^0-9]", "");
+
+                Logger.getInstance().logInfo("Adapter B: Limpeza: '" + rawOutput + "' -> '" + cleaned + "'");
+
+                if (cleaned.length() > 0) {
+                    try {
+                        // Parse as integer first
+                        double rawValue = Double.parseDouble(cleaned);
+                        // MODEL B SPECIFIC: Last 2 digits are red (decimal places)
+                        // Example: "000170" -> 1.70
+                        double finalValue = rawValue / 100.0;
+
+                        Logger.getInstance().logInfo(
+                                "Adapter B: Tesseract OCR realizado em " + imagem.getName() + " -> Valor: "
+                                        + finalValue);
+                        return finalValue;
+                    } catch (NumberFormatException e) {
+                        Logger.getInstance().logError("Adapter B: Falha ao converter valor limpo: " + cleaned);
+                    }
+                } else {
+                    Logger.getInstance()
+                            .logInfo("Adapter B: Tesseract retornou vazio (após limpeza) para " + imagem.getName());
+                }
+            } else {
+                java.io.BufferedReader errorReader = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(p.getErrorStream()));
+                StringBuilder errorOutput = new StringBuilder();
+                String errorLine;
+                while ((errorLine = errorReader.readLine()) != null) {
+                    errorOutput.append(errorLine);
+                }
+                Logger.getInstance().logInfo(
+                        "Adapter B: Tesseract falhou (exit code " + exitCode + "). Erro: " + errorOutput.toString());
+            }
+        } catch (Exception e) {
+            Logger.getInstance().logInfo("Adapter B: Tesseract erro de execução: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            if (tempImage != null && tempImage.exists()) {
+                tempImage.delete();
+            }
         }
-        Logger.getInstance().logInfo("Adapter B: OCR realizado em " + imagem.getName());
-        return 200.0 + Math.random() * 50;
+
+        // Fallback: Parse filename if OCR fails
+        String nome = imagem.getName();
+        try {
+            String valorStr = nome.substring(0, nome.lastIndexOf('.'));
+            double valor = Double.parseDouble(valorStr);
+            Logger.getInstance()
+                    .logInfo("Adapter B: Fallback OCR (nome do arquivo) em " + nome + " -> Valor: " + valor);
+            return valor;
+        } catch (NumberFormatException e) {
+            return 0.0;
+        }
+    }
+
+    private File preprocessarImagem(File original) throws java.io.IOException {
+        java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(original);
+
+        // ROI Estimation based on HidrometroUI.cpp:
+        // x_offset = 307, y_offset = 191 (baseline). Font size 18.
+        // Digits span roughly from x=300 to x=450.
+        // y range roughly 170 to 200.
+        // Let's take a safe crop.
+        int x = 300;
+        int y = 160;
+        int w = 160;
+        int h = 50;
+
+        // Ensure crop is within bounds
+        x = Math.max(0, x);
+        y = Math.max(0, y);
+        w = Math.min(w, img.getWidth() - x);
+        h = Math.min(h, img.getHeight() - y);
+
+        java.awt.image.BufferedImage cropped = img.getSubimage(x, y, w, h);
+
+        // Convert to Grayscale and Binarize (Simple threshold)
+        java.awt.image.BufferedImage processed = new java.awt.image.BufferedImage(w, h,
+                java.awt.image.BufferedImage.TYPE_BYTE_GRAY);
+        java.awt.Graphics2D g = processed.createGraphics();
+        g.drawImage(cropped, 0, 0, null);
+        g.dispose();
+
+        File tempFile = File.createTempFile("ocr_processed_", ".png");
+        javax.imageio.ImageIO.write(processed, "png", tempFile);
+        return tempFile;
     }
 
     @Override
@@ -59,11 +173,17 @@ public class AdaptadorAnalogicoModeloB implements IProcessadorImagem {
                 continue;
 
             for (File arquivo : arquivos) {
-                if (arquivo.isDirectory() && arquivo.getName().startsWith("Scan_")) {
-                    // Check binding
-                    String[] parts = arquivo.getName().split("_");
-                    if (parts.length >= 2) {
-                        String idSHA = parts[1];
+                if (arquivo.isDirectory()) {
+                    String nomeDir = arquivo.getName();
+                    String idSHA = null;
+
+                    if (nomeDir.startsWith("Medições_")) {
+                        idSHA = nomeDir.substring(9);
+                    } else if (nomeDir.startsWith("Scan_")) {
+                        idSHA = nomeDir.substring(5);
+                    }
+
+                    if (idSHA != null) {
                         com.cagepa.pmg.sgu.Usuario u = sgu.getUsuarioPorId(idSHA);
                         if (u == null || !"B".equalsIgnoreCase(u.getModeloAdapter())) {
                             continue;
@@ -94,12 +214,19 @@ public class AdaptadorAnalogicoModeloB implements IProcessadorImagem {
         String parentDir = imagem.getParentFile().getName();
         String idSHA = null;
 
-        if (parentDir.startsWith("Scan_")) {
+        if (parentDir.startsWith("Medições_")) {
+            idSHA = parentDir.substring(9); // Remove "Medições_"
+        } else if (parentDir.startsWith("Scan_")) {
             idSHA = parentDir.substring(5); // Remove "Scan_"
         }
 
         if (idSHA != null) {
-            return new LeituraDados(idSHA, imagem);
+            // Verify if user is Model B
+            com.cagepa.pmg.sgu.SGU sgu = new com.cagepa.pmg.sgu.SGU();
+            com.cagepa.pmg.sgu.Usuario u = sgu.getUsuarioPorId(idSHA);
+            if (u != null && "B".equalsIgnoreCase(u.getModeloAdapter())) {
+                return new LeituraDados(idSHA, imagem);
+            }
         }
         return null;
     }
