@@ -91,6 +91,10 @@ public class SMC {
         java.nio.file.Path path = java.nio.file.Paths.get(pathStr);
         try {
             registerRecursive(path);
+            // Propagate to adapters so they can poll/check status in this directory
+            for (IProcessadorImagem adapter : adaptadores) {
+                adapter.adicionarDiretorio(pathStr);
+            }
         } catch (java.io.IOException e) {
             Logger.getInstance().logError("SMC: Erro ao registrar diretório " + pathStr + ": " + e.getMessage());
         }
