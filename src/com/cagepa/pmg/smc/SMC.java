@@ -255,14 +255,36 @@ public class SMC {
         if (u == null)
             return "USUÁRIO NÃO ENCONTRADO";
 
-        if ("A".equalsIgnoreCase(u.getModeloAdapter())) {
-            for (IProcessadorImagem adapter : adaptadores) {
-                if (adapter instanceof com.cagepa.pmg.smc.adapter.AdaptadorAnalogicoModeloA) {
-                    return ((com.cagepa.pmg.smc.adapter.AdaptadorAnalogicoModeloA) adapter).verificarStatus(idUsuario);
-                }
+        // Iterate over adapters to find the one handling this user/model
+        // Since we don't have a direct map of User -> Adapter in SMC, we iterate all.
+        // Ideally, we should know which adapter handles which model.
+        // For now, we try all adapters.
+        for (IProcessadorImagem adapter : adaptadores) {
+            // We can check if the adapter supports the model if we add a method for that,
+            // or just let the adapter decide if it knows the status.
+            // But verificarStatus takes an ID.
+            String status = adapter.verificarStatus(idUsuario);
+            if (!"PARADO".equals(status) && !"DESCONHECIDO (Modelo C não suportado)".equals(status)) {
+                return status;
+            }
+            // If it returns PARADO, it might be the right adapter but the device is
+            // stopped.
+            // Or it might be the wrong adapter.
+            // This logic is a bit flawed if multiple adapters return PARADO.
+
+            // Better approach: Check model string
+            if ("A".equalsIgnoreCase(u.getModeloAdapter())
+                    && adapter instanceof com.cagepa.pmg.smc.adapter.AdaptadorAnalogicoModeloA) {
+                return adapter.verificarStatus(idUsuario);
+            } else if ("B".equalsIgnoreCase(u.getModeloAdapter())
+                    && adapter instanceof com.cagepa.pmg.smc.adapter.AdaptadorAnalogicoModeloB) {
+                return adapter.verificarStatus(idUsuario);
+            } else if ("C".equalsIgnoreCase(u.getModeloAdapter())
+                    && adapter instanceof com.cagepa.pmg.smc.adapter.AdaptadorAnalogicoModeloC) {
+                return adapter.verificarStatus(idUsuario);
             }
         }
-        return "DESCONHECIDO (Modelo não suporta status)";
+        return "PARADO"; // Default if no active status found
     }
 
     private void notificarObservers(String idSHA, double valor) {

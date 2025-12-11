@@ -230,4 +230,46 @@ public class AdaptadorAnalogicoModeloB implements IProcessadorImagem {
         }
         return null;
     }
+
+    @Override
+    public String verificarStatus(String idSHA) {
+        for (File diretorio : diretoriosMonitorados) {
+            if (!diretorio.exists())
+                continue;
+            File[] arquivos = diretorio.listFiles();
+            if (arquivos == null)
+                continue;
+
+            for (File arquivo : arquivos) {
+                if (arquivo.isDirectory()) {
+                    String nomeDir = arquivo.getName();
+                    String dirId = null;
+
+                    if (nomeDir.startsWith("Medições_")) {
+                        dirId = nomeDir.substring(9);
+                    } else if (nomeDir.startsWith("Scan_")) {
+                        dirId = nomeDir.substring(5);
+                    }
+
+                    if (dirId != null && dirId.equals(idSHA)) {
+                        File[] imagens = arquivo.listFiles((dir, name) -> name.toLowerCase().endsWith(".jpg") ||
+                                name.toLowerCase().endsWith(".jpeg") ||
+                                name.toLowerCase().endsWith(".png"));
+
+                        if (imagens != null && imagens.length > 0) {
+                            java.util.Arrays.sort(imagens,
+                                    (f1, f2) -> Long.compare(f2.lastModified(), f1.lastModified()));
+                            File maisRecente = imagens[0];
+                            long diff = System.currentTimeMillis() - maisRecente.lastModified();
+                            // If image is younger than 10 seconds, it's running
+                            if (diff < 10000) {
+                                return "EM EXECUÇÃO";
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return "PARADO";
+    }
 }

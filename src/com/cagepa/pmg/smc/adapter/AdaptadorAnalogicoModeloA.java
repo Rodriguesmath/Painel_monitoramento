@@ -110,6 +110,7 @@ public class AdaptadorAnalogicoModeloA implements IProcessadorImagem {
         }
     }
 
+    @Override
     public String verificarStatus(String idSHA) {
         for (File diretorio : diretoriosMonitorados) {
             if (!diretorio.exists())
@@ -133,8 +134,8 @@ public class AdaptadorAnalogicoModeloA implements IProcessadorImagem {
                                     (f1, f2) -> Long.compare(f2.lastModified(), f1.lastModified()));
                             File maisRecente = imagens[0];
                             long diff = System.currentTimeMillis() - maisRecente.lastModified();
-                            // If image is younger than 30 seconds, it's running
-                            if (diff < 30000) {
+                            // If image is younger than 10 seconds, it's running
+                            if (diff < 10000) {
                                 return "EM EXECUÇÃO";
                             }
                         }

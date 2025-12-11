@@ -69,6 +69,8 @@ public class FachadaSistema {
         // Inject default configuration here (Facade Pattern acting as Configurator)
         smc.adicionarDiretorioLeitura("/home/rodrigues/Documentos/Painel_monitoramento/Simulador-Hidrometro-A");
         smc.adicionarDiretorioLeitura("/home/rodrigues/Documentos/Painel_monitoramento/Simulador-Hidrometro-B");
+        smc.adicionarDiretorioLeitura("/home/rodrigues/Documentos/Painel_monitoramento"); // Add root for standalone
+                                                                                          // sims
         smc.iniciarMonitoramento();
     }
 

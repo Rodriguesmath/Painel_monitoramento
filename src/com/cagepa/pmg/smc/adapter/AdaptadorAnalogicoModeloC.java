@@ -101,4 +101,9 @@ public class AdaptadorAnalogicoModeloC implements IProcessadorImagem {
         }
         return null;
     }
+
+    @Override
+    public String verificarStatus(String idSHA) {
+        return "DESCONHECIDO (Modelo C não suportado)";
+    }
 }

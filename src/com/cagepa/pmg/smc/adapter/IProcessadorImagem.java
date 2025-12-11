@@ -15,4 +15,7 @@ public interface IProcessadorImagem {
 
     // Process a single specific image file (for Event-Driven architecture)
     LeituraDados processarImagem(java.io.File imagem);
+
+    // Check status of the hydrometer based on recent activity
+    String verificarStatus(String idSHA);
 }
