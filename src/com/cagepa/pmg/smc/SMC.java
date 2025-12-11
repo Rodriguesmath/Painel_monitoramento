@@ -58,8 +58,9 @@ public class SMC {
         executor = Executors.newFixedThreadPool(5);
         scheduler = Executors.newSingleThreadScheduledExecutor();
 
-        // Schedule periodic processing (Debouncing)
-        scheduler.scheduleAtFixedRate(this::processarPendencias, 0, 2, TimeUnit.SECONDS);
+        // Schedule periodic processing (Debouncing) - REMOVED
+        // scheduler.scheduleAtFixedRate(this::processarPendencias, 0, 2,
+        // TimeUnit.SECONDS);
 
         // Schedule polling for adapters (Fallback for WatchService)
         scheduler.scheduleAtFixedRate(this::pollAdapters, 0, 5, TimeUnit.SECONDS);
@@ -147,6 +148,10 @@ public class SMC {
                 if (java.nio.file.Files.isDirectory(child, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
                     try {
                         registerRecursive(child);
+                        // Propagate to adapters
+                        for (IProcessadorImagem adapter : adaptadores) {
+                            adapter.adicionarDiretorio(child.toAbsolutePath().toString());
+                        }
                     } catch (java.io.IOException x) {
                         Logger.getInstance().logError("SMC: Falha ao registrar novo diretório: " + child);
                     }
@@ -156,11 +161,9 @@ public class SMC {
                     for (IProcessadorImagem adaptador : adaptadores) {
                         LeituraDados leitura = adaptador.processarImagem(arquivo);
                         if (leitura != null) {
-                            // DEBOUNCING: Update pending reading for this user
-                            // Instead of submitting immediately, we just update the map.
-                            // The scheduler will pick up the latest one.
-                            pendingReadings.put(leitura.getIdSHA(), leitura);
-                            break; // Found the right adapter
+                            // Process IMMEDIATELY (Synchronous/No Debounce)
+                            processarLeitura(leitura, adaptador);
+                            break;
                         }
                     }
                 }
@@ -181,8 +184,8 @@ public class SMC {
             try {
                 List<LeituraDados> leituras = adapter.processarNovasImagens();
                 for (LeituraDados leitura : leituras) {
-                    // Add to pending readings
-                    pendingReadings.put(leitura.getIdSHA(), leitura);
+                    // Process IMMEDIATELY
+                    processarLeitura(leitura, adapter);
                 }
             } catch (Exception e) {
                 Logger.getInstance().logError("SMC: Erro ao realizar polling no adaptador: " + e.getMessage());
@@ -190,50 +193,18 @@ public class SMC {
         }
     }
 
-    private void processarPendencias() {
-        if (pendingReadings.isEmpty()) {
-            return;
-        }
+    // Removed processarPendencias as we are processing immediately
 
-        // Iterate over a snapshot of keys to avoid concurrent modification issues
-        // (though ConcurrentHashMap handles iteration safely)
-        for (String idSHA : pendingReadings.keySet()) {
-            LeituraDados leitura = pendingReadings.remove(idSHA);
-            if (leitura != null) {
-                executor.submit(() -> {
-                    try {
-                        // Find the adapter again? No, we need the adapter to perform OCR.
-                        // Ideally LeituraDados should know its adapter or we find it again.
-                        // For simplicity, we'll iterate adapters again or store it in LeituraDados.
-                        // But wait, LeituraDados doesn't have the adapter.
-                        // Let's find the adapter that can process this image (or just use the first one
-                        // that works? No, we know the ID).
-
-                        // Optimization: We already validated the image with an adapter.
-                        // We can just try to find the adapter again.
-                        IProcessadorImagem adapter = null;
-                        for (IProcessadorImagem a : adaptadores) {
-                            if (a.processarImagem(leitura.getImagem()) != null) {
-                                adapter = a;
-                                break;
-                            }
-                        }
-
-                        if (adapter != null) {
-                            double valor = adapter.realizarOCR(leitura.getImagem());
-                            leitura.setValor(valor);
-                            processarLeituraIndividual(leitura);
-                        } else {
-                            Logger.getInstance().logError("SMC: Adaptador não encontrado para processar pendência: "
-                                    + leitura.getImagem().getAbsolutePath());
-                        }
-                    } catch (Exception e) {
-                        Logger.getInstance()
-                                .logError("SMC: Erro no OCR diferido para " + idSHA + ": " + e.getMessage());
-                    }
-                });
+    private void processarLeitura(LeituraDados leitura, IProcessadorImagem adapter) {
+        executor.submit(() -> {
+            try {
+                double valor = adapter.realizarOCR(leitura.getImagem());
+                leitura.setValor(valor);
+                processarLeituraIndividual(leitura);
+            } catch (Exception e) {
+                Logger.getInstance().logError("SMC: Erro no OCR para " + leitura.getIdSHA() + ": " + e.getMessage());
             }
-        }
+        });
     }
 
     private com.cagepa.pmg.sgu.SGU sgu = new com.cagepa.pmg.sgu.SGU();
