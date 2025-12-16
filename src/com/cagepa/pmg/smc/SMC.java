@@ -10,7 +10,6 @@ import java.util.List;
 
 import com.cagepa.pmg.smc.adapter.LeituraDados;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import com.cagepa.pmg.sgu.Usuario;
 import com.cagepa.pmg.sgu.Hidrometro;
@@ -20,12 +19,10 @@ public class SMC {
     private List<IProcessadorImagem> adaptadores = new ArrayList<>();
     private java.nio.file.WatchService watcher;
     private java.util.Map<java.nio.file.WatchKey, java.nio.file.Path> keys;
-    private boolean trace = false;
     private boolean monitorando = false;
 
     private java.util.concurrent.ExecutorService executor;
     private java.util.concurrent.ScheduledExecutorService scheduler;
-    private java.util.concurrent.ConcurrentHashMap<String, LeituraDados> pendingReadings = new java.util.concurrent.ConcurrentHashMap<>();
 
     public SMC() {
         try {

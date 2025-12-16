@@ -30,6 +30,7 @@ public class ConexaoDB {
                 "id_usuario TEXT NOT NULL," +
                 "modelo TEXT NOT NULL," +
                 "consumo_atual REAL DEFAULT 0.0," +
+                "offset REAL DEFAULT 0.0," +
                 "FOREIGN KEY(id_usuario) REFERENCES usuarios(id)" +
                 ");";
 

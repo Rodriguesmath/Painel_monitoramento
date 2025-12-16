@@ -242,7 +242,7 @@ public class PainelTUI {
                                 String status = fachada.getStatusHidrometro(h.getId());
                                 sb.append(String.format(
                                         "Nome: %-20s | ID: %-10s | Modelo: %-2s | Status: %-12s | Consumo: %.2f\n",
-                                        u.getNome(), h.getId(), h.getModelo(), status, h.getConsumoAtual()));
+                                        u.getNome(), h.getId(), h.getModelo(), status, h.getConsumoTotal()));
                             }
                         }
                     }
@@ -429,7 +429,7 @@ public class PainelTUI {
             } else {
                 for (Hidrometro h : hidros) {
                     panel.addComponent(new Label(String.format("Nome: %s | ID: %s | Modelo: %s | Consumo: %.2f",
-                            u.getNome(), h.getId(), h.getModelo(), h.getConsumoAtual())));
+                            u.getNome(), h.getId(), h.getModelo(), h.getConsumoTotal())));
                 }
             }
         }
@@ -477,19 +477,36 @@ public class PainelTUI {
     private static void showDeletarUsuario() {
         BasicWindow window = new BasicWindow("Deletar Usuário");
         window.setHints(Arrays.asList(Window.Hint.CENTERED));
-        Panel panel = new Panel(new GridLayout(2));
+        Panel panel = new Panel(new LinearLayout(Direction.VERTICAL));
 
-        panel.addComponent(new Label("ID do Usuário:"));
-        TextBox txtId = new TextBox();
-        panel.addComponent(txtId);
+        panel.addComponent(new Label("Selecione o usuário:"));
+
+        List<Usuario> usuarios = fachada.listarUsuarios();
+        ComboBox<String> cbUsuarios = new ComboBox<>();
+        for (Usuario u : usuarios) {
+            cbUsuarios.addItem(u.getId() + " - " + u.getNome());
+        }
+        panel.addComponent(cbUsuarios);
 
         panel.addComponent(new EmptySpace(new TerminalSize(0, 1)));
 
         Panel btnPanel = new Panel(new LinearLayout(Direction.HORIZONTAL));
         btnPanel.addComponent(new Button("Deletar", () -> {
-            fachada.deletarUsuario(txtId.getText());
-            MessageDialog.showMessageDialog(gui, "Sucesso", "Usuário deletado!", MessageDialogButton.OK);
-            window.close();
+            String selected = cbUsuarios.getSelectedItem();
+            if (selected != null) {
+                String id = selected.split(" - ")[0];
+
+                MessageDialogButton result = MessageDialog.showMessageDialog(gui, "Confirmação",
+                        "Tem certeza que deseja deletar o usuário " + id
+                                + "?\nIsso removerá também os hidrômetros associados.",
+                        MessageDialogButton.Yes, MessageDialogButton.No);
+
+                if (result == MessageDialogButton.Yes) {
+                    fachada.deletarUsuario(id);
+                    MessageDialog.showMessageDialog(gui, "Sucesso", "Usuário deletado!", MessageDialogButton.OK);
+                    window.close();
+                }
+            }
         }));
         btnPanel.addComponent(new Button("Cancelar", window::close));
 

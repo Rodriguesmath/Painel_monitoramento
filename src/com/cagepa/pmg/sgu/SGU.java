@@ -35,7 +35,7 @@ public class SGU {
     }
 
     public void adicionarHidrometro(String idUsuario, String idHidrometro, String modelo) {
-        String sql = "INSERT INTO hidrometros(id, id_usuario, modelo, consumo_atual) VALUES(?, ?, ?, 0.0)";
+        String sql = "INSERT INTO hidrometros(id, id_usuario, modelo, consumo_atual, offset) VALUES(?, ?, ?, 0.0, 0.0)";
         try (Connection conn = ConexaoDB.conectar();
                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, idHidrometro);
@@ -74,20 +74,49 @@ public class SGU {
         return u != null ? u.getTipo() : null;
     }
 
-    public void atualizarConsumo(String idHidrometro, double consumo) {
-        String sql = "UPDATE hidrometros SET consumo_atual = ? WHERE id = ?";
+    public void atualizarConsumo(String idHidrometro, double novaLeitura) {
+        // First, get current state to check for reset
+        String selectSql = "SELECT consumo_atual, offset FROM hidrometros WHERE id = ?";
+        double leituraAtual = 0.0;
+        double offsetAtual = 0.0;
+        boolean found = false;
+
         try (Connection conn = ConexaoDB.conectar();
-                PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setDouble(1, consumo);
-            pstmt.setString(2, idHidrometro);
-            int rows = pstmt.executeUpdate();
-            if (rows > 0) {
-                // Logger.getInstance().logInfo("SGU: Consumo atualizado para hidrômetro " +
-                // idHidrometro + ": " + consumo);
-            } else {
-                Logger.getInstance()
-                        .logError("SGU: Hidrômetro não encontrado para atualização de consumo: " + idHidrometro);
+                PreparedStatement pstmt = conn.prepareStatement(selectSql)) {
+            pstmt.setString(1, idHidrometro);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                leituraAtual = rs.getDouble("consumo_atual");
+                offsetAtual = rs.getDouble("offset");
+                found = true;
             }
+        } catch (SQLException e) {
+            Logger.getInstance().logError("SGU: Erro ao ler consumo atual: " + e.getMessage());
+            return;
+        }
+
+        if (!found) {
+            Logger.getInstance().logError("SGU: Hidrômetro não encontrado para atualização: " + idHidrometro);
+            return;
+        }
+
+        // Logic: If new reading is smaller than current reading (and not 0 initially),
+        // assume reset
+        if (novaLeitura < leituraAtual) {
+            Logger.getInstance().logInfo("SGU: Detectado reinício do simulador para " + idHidrometro +
+                    ". Leitura anterior: " + leituraAtual + ", Nova: " + novaLeitura);
+            offsetAtual += leituraAtual;
+        }
+
+        String updateSql = "UPDATE hidrometros SET consumo_atual = ?, offset = ? WHERE id = ?";
+        try (Connection conn = ConexaoDB.conectar();
+                PreparedStatement pstmt = conn.prepareStatement(updateSql)) {
+            pstmt.setDouble(1, novaLeitura);
+            pstmt.setDouble(2, offsetAtual);
+            pstmt.setString(3, idHidrometro);
+            pstmt.executeUpdate();
+            // Logger.getInstance().logInfo("SGU: Consumo atualizado. Total: " +
+            // (novaLeitura + offsetAtual));
         } catch (SQLException e) {
             Logger.getInstance().logError("SGU: Erro ao atualizar consumo: " + e.getMessage());
         }
@@ -118,7 +147,7 @@ public class SGU {
     }
 
     private void carregarHidrometros(Usuario usuario) {
-        String sql = "SELECT id, modelo, consumo_atual FROM hidrometros WHERE id_usuario = ?";
+        String sql = "SELECT id, modelo, consumo_atual, offset FROM hidrometros WHERE id_usuario = ?";
         try (Connection conn = ConexaoDB.conectar();
                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, usuario.getId());
@@ -128,7 +157,8 @@ public class SGU {
                         rs.getString("id"),
                         usuario.getId(),
                         rs.getString("modelo"),
-                        rs.getDouble("consumo_atual")));
+                        rs.getDouble("consumo_atual"),
+                        rs.getDouble("offset")));
             }
         } catch (SQLException e) {
             Logger.getInstance().logError(
@@ -175,7 +205,7 @@ public class SGU {
                 for (Hidrometro h : hidros) {
                     sb.append(String.format("%-10s %-20s %-10s %-10s %-15s %-10s %-10.2f%n",
                             u.getId(), u.getNome(), u.getSenha(), u.getTipo(), h.getId(), h.getModelo(),
-                            h.getConsumoAtual()));
+                            h.getConsumoTotal()));
                 }
             }
         }

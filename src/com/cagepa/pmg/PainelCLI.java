@@ -106,7 +106,7 @@ public class PainelCLI {
                                                         System.out.printf(
                                                                 "Nome: %-20s | ID: %-10s | Modelo: %-2s | Status: %-12s | Consumo: %.2f%n",
                                                                 u.getNome(), h.getId(), h.getModelo(), status,
-                                                                h.getConsumoAtual());
+                                                                h.getConsumoTotal());
                                                     }
                                                 }
                                             }
@@ -206,7 +206,7 @@ public class PainelCLI {
                                                         System.out.printf(
                                                                 "Nome: %-20s | ID: %-10s | Modelo: %-2s | Consumo: %.2f%n",
                                                                 u.getNome(), h.getId(), h.getModelo(),
-                                                                h.getConsumoAtual());
+                                                                h.getConsumoTotal());
                                                     }
                                                 }
                                             }
@@ -226,10 +226,58 @@ public class PainelCLI {
                                         case "5":
                                             limparTela();
                                             System.out.println("=== Deletar Usuário ===");
-                                            System.out.print("ID do Usuário a deletar: ");
-                                            String idDel = scanner.nextLine();
-                                            fachada.deletarUsuario(idDel);
-                                            fachada.logInfo("CLI: Usuário deletado: " + idDel);
+                                            List<Usuario> listaDel = fachada.listarUsuarios();
+                                            if (listaDel.isEmpty()) {
+                                                System.out.println("Nenhum usuário cadastrado.");
+                                                esperarEnter(scanner);
+                                                break;
+                                            }
+
+                                            for (int i = 0; i < listaDel.size(); i++) {
+                                                Usuario u = listaDel.get(i);
+                                                System.out.printf("%d. %s (ID: %s)%n", i + 1, u.getNome(), u.getId());
+                                            }
+                                            System.out.println("0. Cancelar");
+
+                                            System.out.print("\nDigite o número ou o ID do usuário: ");
+                                            String inputDel = scanner.nextLine();
+
+                                            if ("0".equals(inputDel))
+                                                break;
+
+                                            String idParaDeletar = null;
+
+                                            // Try to parse as index
+                                            try {
+                                                int index = Integer.parseInt(inputDel);
+                                                if (index > 0 && index <= listaDel.size()) {
+                                                    idParaDeletar = listaDel.get(index - 1).getId();
+                                                }
+                                            } catch (NumberFormatException e) {
+                                                // Not a number, assume it's an ID
+                                                for (Usuario u : listaDel) {
+                                                    if (u.getId().equals(inputDel)) {
+                                                        idParaDeletar = u.getId();
+                                                        break;
+                                                    }
+                                                }
+                                            }
+
+                                            if (idParaDeletar != null) {
+                                                System.out.printf(
+                                                        "Tem certeza que deseja deletar o usuário '%s' e seus hidrômetros? (S/N): ",
+                                                        idParaDeletar);
+                                                String confirm = scanner.nextLine();
+                                                if ("S".equalsIgnoreCase(confirm)) {
+                                                    fachada.deletarUsuario(idParaDeletar);
+                                                    System.out.println("Usuário deletado com sucesso!");
+                                                    fachada.logInfo("CLI: Usuário deletado: " + idParaDeletar);
+                                                } else {
+                                                    System.out.println("Operação cancelada.");
+                                                }
+                                            } else {
+                                                System.out.println("Usuário não encontrado.");
+                                            }
                                             esperarEnter(scanner);
                                             break;
                                         case "0":
