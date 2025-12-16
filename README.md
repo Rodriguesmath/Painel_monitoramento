@@ -13,22 +13,22 @@ Sistema corporativo de monitoramento automatizado para leitura de hidrômetros, 
 
 O sistema foi concebido para demonstrar a aplicação prática de diversos padrões de projeto, garantindo modularidade, extensibilidade e manutenibilidade.
 
-| Padrão | Categoria | Aplicação no Projeto | Localização no Código |
+| Padrão | Categoria | Aplicação no Projeto | Arquivos e Papéis |
 | :--- | :--- | :--- | :--- |
-| **Facade** | Estrutural | Simplifica a complexidade dos subsistemas (SGU, SMC, SAN, SGR) fornecendo uma interface única para o cliente (CLI). | [`FachadaSistema.java`](src/com/cagepa/pmg/FachadaSistema.java) |
-| **Singleton** | Criacional | Garante instância única para o gerenciador de logs e conexão com banco de dados. | [`Logger.java`](src/com/cagepa/pmg/infra/Logger.java), [`ConexaoDB.java`](src/com/cagepa/pmg/infra/ConexaoDB.java) |
-| **Adapter** | Estrutural | Permite que o sistema processe imagens de diferentes modelos de hidrômetros (A, B, C) através de uma interface comum. | [`IProcessadorImagem.java`](src/com/cagepa/pmg/smc/adapter/IProcessadorImagem.java) |
-| **Observer** | Comportamental | Notifica automaticamente o subsistema de alertas (SAN) quando uma nova leitura é processada pelo monitoramento (SMC). | [`SMC.java`](src/com/cagepa/pmg/smc/SMC.java) (Subject) → [`SAN.java`](src/com/cagepa/pmg/san/SAN.java) (Observer) |
-| **Strategy** | Comportamental | Permite alternar dinamicamente entre estratégias de notificação (E-mail ou SMS) sem alterar o cliente. | [`INotificador.java`](src/com/cagepa/pmg/san/INotificador.java) |
-| **State** | Comportamental | Gerencia o ciclo de vida do processamento de leitura (Processando → Concluído/Erro) de forma organizada. | [`LeituraContext.java`](src/com/cagepa/pmg/smc/state/LeituraContext.java) |
-| **Template Method** | Comportamental | Define o esqueleto do algoritmo de geração de relatórios, delegando a formatação específica (PDF/CSV) para as subclasses. | [`GeradorRelatorio.java`](src/com/cagepa/pmg/sgr/GeradorRelatorio.java) |
+| **Facade** | Estrutural | Simplifica a complexidade dos subsistemas fornecendo uma interface única. | • `src/com/cagepa/pmg/FachadaSistema.java` (Facade) |
+| **Singleton** | Criacional | Garante instância única para recursos compartilhados. | • `src/com/cagepa/pmg/infra/Logger.java` (Singleton)<br>• `src/com/cagepa/pmg/infra/ConexaoDB.java` (Resource Access) |
+| **Adapter** | Estrutural | Padroniza o processamento de imagens de diferentes modelos. | • `src/com/cagepa/pmg/smc/adapter/IProcessadorImagem.java` (Target)<br>• `src/com/cagepa/pmg/smc/adapter/AdaptadorAnalogicoModeloA.java` (Adapter)<br>• `src/com/cagepa/pmg/smc/adapter/AdaptadorAnalogicoModeloB.java` (Adapter) |
+| **Observer** | Comportamental | Notifica alertas quando uma nova leitura é processada. | • `src/com/cagepa/pmg/smc/SMC.java` (Subject)<br>• `src/com/cagepa/pmg/san/SAN.java` (Observer) |
+| **Strategy** | Comportamental | Alterna dinamicamente entre estratégias de notificação. | • `src/com/cagepa/pmg/san/INotificador.java` (Strategy Interface)<br>• `src/com/cagepa/pmg/san/NotificadorEmail.java` (Concrete Strategy)<br>• `src/com/cagepa/pmg/san/NotificadorSMS.java` (Concrete Strategy) |
+| **State** | Comportamental | Gerencia o ciclo de vida do processamento de leitura. | • `src/com/cagepa/pmg/smc/state/LeituraContext.java` (Context)<br>• `src/com/cagepa/pmg/smc/state/EstadoLeitura.java` (State Interface)<br>• `src/com/cagepa/pmg/smc/state/EstadoProcessando.java` (Concrete State) |
+| **Template Method** | Comportamental | Define o esqueleto da geração de relatórios. | • `src/com/cagepa/pmg/sgr/GeradorRelatorio.java` (Abstract Template)<br>• `src/com/cagepa/pmg/sgr/RelatorioPDF.java` (Concrete Class)<br>• `src/com/cagepa/pmg/sgr/RelatorioCSV.java` (Concrete Class) |
 
 ---
 
 ## 🚀 Status dos Módulos
 
 ### 👤 SGU - Sistema de Gerenciamento de Usuários
-**Status:** `PRODUÇÃO` (100%)
+**Status:** `(Concluído)` (100%)
 > Gerenciamento completo com persistência em SQLite.
 - [x] CRUD de Usuários e Hidrômetros
 - [x] Persistência Relacional (SQLite)
@@ -61,7 +61,7 @@ O sistema foi concebido para demonstrar a aplicação prática de diversos padr�
 - [ ] Geração de CSV com Dados Reais
 
 ### 🖥️ Interface (CLI & TUI)
-**Status:** `PRODUÇÃO` (95%)
+**Status:** `(Concluído)` (95%)
 > Interface de terminal rica e interativa.
 - [x] Menus Interativos (Lanterna)
 - [x] Monitoramento em Tempo Real
