@@ -313,7 +313,7 @@ public class SMC {
             // Fallback: try all adapters
             for (IProcessadorImagem adapter : adaptadores) {
                 String status = adapter.verificarStatus(idHidrometro);
-                if (!"PARADO".equals(status) && !"DESCONHECIDO (Modelo C não suportado)".equals(status)) {
+                if (!"PARADO".equals(status)) {
                     return status;
                 }
             }
@@ -328,9 +328,7 @@ public class SMC {
             } else if ("B".equalsIgnoreCase(modelo)
                     && adapter instanceof com.cagepa.pmg.smc.adapter.AdaptadorAnalogicoModeloB) {
                 return adapter.verificarStatus(idHidrometro);
-            } else if ("C".equalsIgnoreCase(modelo)
-                    && adapter instanceof com.cagepa.pmg.smc.adapter.AdaptadorAnalogicoModeloC) {
-                return adapter.verificarStatus(idHidrometro);
+
             }
         }
         return "PARADO";

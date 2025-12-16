@@ -13,7 +13,6 @@ import com.cagepa.pmg.sgu.TipoUsuario;
 import com.cagepa.pmg.smc.SMC;
 import com.cagepa.pmg.smc.adapter.AdaptadorAnalogicoModeloA;
 import com.cagepa.pmg.smc.adapter.AdaptadorAnalogicoModeloB;
-import com.cagepa.pmg.smc.adapter.AdaptadorAnalogicoModeloC;
 
 public class FachadaSistema {
     private SGU sgu;
@@ -44,7 +43,6 @@ public class FachadaSistema {
         // Register Adapters
         this.smc.adicionarAdaptador(new AdaptadorAnalogicoModeloA());
         this.smc.adicionarAdaptador(new AdaptadorAnalogicoModeloB());
-        this.smc.adicionarAdaptador(new AdaptadorAnalogicoModeloC());
 
         Logger.getInstance().logInfo("Fachada: Sistema inicializado e subsistemas conectados.");
     }

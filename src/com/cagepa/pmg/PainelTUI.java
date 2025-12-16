@@ -395,7 +395,7 @@ public class PainelTUI {
         panel.addComponent(txtIdHidro);
 
         panel.addComponent(new Label("Modelo:"));
-        ComboBox<String> cbModelo = new ComboBox<>("A", "B", "C");
+        ComboBox<String> cbModelo = new ComboBox<>("A", "B");
         panel.addComponent(cbModelo);
 
         panel.addComponent(new EmptySpace(new TerminalSize(0, 1)));

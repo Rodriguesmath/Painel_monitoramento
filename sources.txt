@@ -14,7 +14,6 @@ src/com/cagepa/pmg/infra/ConexaoDB.java
 src/com/cagepa/pmg/FachadaSistema.java
 src/com/cagepa/pmg/PainelTUI.java
 src/com/cagepa/pmg/smc/SMC.java
-src/com/cagepa/pmg/smc/adapter/AdaptadorAnalogicoModeloC.java
 src/com/cagepa/pmg/smc/adapter/AdaptadorAnalogicoModeloA.java
 src/com/cagepa/pmg/smc/adapter/LeituraDados.java
 src/com/cagepa/pmg/smc/adapter/IProcessadorImagem.java
