@@ -45,8 +45,12 @@ public class FachadaSistema {
         return sgu.getTipoUsuario(id);
     }
 
-    public void cadastrarUsuario(String id, String nome, String senha, TipoUsuario tipo, String modeloAdapter) {
-        sgu.cadastrarUsuario(id, nome, senha, tipo, modeloAdapter);
+    public void cadastrarUsuario(String id, String nome, String senha, TipoUsuario tipo) {
+        sgu.cadastrarUsuario(id, nome, senha, tipo);
+    }
+
+    public void adicionarHidrometro(String idUsuario, String idHidrometro, String modelo) {
+        sgu.adicionarHidrometro(idUsuario, idHidrometro, modelo);
     }
 
     public java.util.List<com.cagepa.pmg.sgu.Usuario> listarUsuarios() {
@@ -109,5 +113,13 @@ public class FachadaSistema {
             return;
         }
         gerador.gerarRelatorio(idUsuario);
+    }
+
+    public void logInfo(String msg) {
+        Logger.getInstance().logInfo(msg);
+    }
+
+    public void logError(String msg) {
+        Logger.getInstance().logError(msg);
     }
 }

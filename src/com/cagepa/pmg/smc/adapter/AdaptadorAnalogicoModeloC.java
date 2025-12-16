@@ -63,8 +63,20 @@ public class AdaptadorAnalogicoModeloC implements IProcessadorImagem {
                     String[] parts = arquivo.getName().split("_");
                     if (parts.length >= 2) {
                         String idSHA = parts[1];
-                        com.cagepa.pmg.sgu.Usuario u = sgu.getUsuarioPorId(idSHA);
-                        if (u == null || !"C".equalsIgnoreCase(u.getModeloAdapter())) {
+                        com.cagepa.pmg.sgu.Usuario u = sgu.getUsuarioPorHidrometro(idSHA);
+                        if (u == null) {
+                            continue;
+                        }
+
+                        boolean isModelC = false;
+                        for (com.cagepa.pmg.sgu.Hidrometro h : u.getHidrometros()) {
+                            if (h.getId().equals(idSHA) && "C".equalsIgnoreCase(h.getModelo())) {
+                                isModelC = true;
+                                break;
+                            }
+                        }
+
+                        if (!isModelC) {
                             continue;
                         }
 

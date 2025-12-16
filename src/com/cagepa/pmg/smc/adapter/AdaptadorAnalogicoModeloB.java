@@ -39,7 +39,7 @@ public class AdaptadorAnalogicoModeloB implements IProcessadorImagem {
     public double realizarOCR(File imagem) {
         File tempImage = null;
         try {
-            // Preprocess image: Crop to ROI and convert to grayscale
+            // Preprocess image: Crop to ROI, convert to grayscale, and binarize
             tempImage = preprocessarImagem(imagem);
 
             // Use PSM 7 (Treat the image as a single text line)
@@ -146,16 +146,80 @@ public class AdaptadorAnalogicoModeloB implements IProcessadorImagem {
 
         java.awt.image.BufferedImage cropped = img.getSubimage(x, y, w, h);
 
-        // Convert to Grayscale and Binarize (Simple threshold)
-        java.awt.image.BufferedImage processed = new java.awt.image.BufferedImage(w, h,
-                java.awt.image.BufferedImage.TYPE_BYTE_GRAY);
-        java.awt.Graphics2D g = processed.createGraphics();
-        g.drawImage(cropped, 0, 0, null);
-        g.dispose();
+        // Binarize the image (Thresholding)
+        java.awt.image.BufferedImage processed = binarizarImagem(cropped);
 
         File tempFile = File.createTempFile("ocr_processed_", ".png");
         javax.imageio.ImageIO.write(processed, "png", tempFile);
         return tempFile;
+    }
+
+    private java.awt.image.BufferedImage binarizarImagem(java.awt.image.BufferedImage img) {
+        int width = img.getWidth();
+        int height = img.getHeight();
+        int[] histogram = new int[256];
+
+        // 1. Convert to grayscale and compute histogram
+        int[][] grayData = new int[width][height];
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int rgb = img.getRGB(x, y);
+                int r = (rgb >> 16) & 0xFF;
+                int g = (rgb >> 8) & 0xFF;
+                int b = (rgb & 0xFF);
+                int gray = (r + g + b) / 3;
+                grayData[x][y] = gray;
+                histogram[gray]++;
+            }
+        }
+
+        // 2. Otsu's Thresholding
+        int total = width * height;
+        float sum = 0;
+        for (int i = 0; i < 256; i++)
+            sum += i * histogram[i];
+
+        float sumB = 0;
+        int wB = 0;
+        int wF = 0;
+        float varMax = 0;
+        int threshold = 0;
+
+        for (int t = 0; t < 256; t++) {
+            wB += histogram[t];
+            if (wB == 0)
+                continue;
+            wF = total - wB;
+            if (wF == 0)
+                break;
+
+            sumB += (float) (t * histogram[t]);
+            float mB = sumB / wB;
+            float mF = (sum - sumB) / wF;
+
+            float varBetween = (float) wB * (float) wF * (mB - mF) * (mB - mF);
+
+            if (varBetween > varMax) {
+                varMax = varBetween;
+                threshold = t;
+            }
+        }
+        Logger.getInstance().logInfo("Adapter B: Otsu Threshold calculado: " + threshold);
+
+        // 3. Apply Threshold
+        java.awt.image.BufferedImage binarized = new java.awt.image.BufferedImage(width, height,
+                java.awt.image.BufferedImage.TYPE_BYTE_BINARY);
+
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                if (grayData[x][y] < threshold) {
+                    binarized.setRGB(x, y, 0x000000); // Black
+                } else {
+                    binarized.setRGB(x, y, 0xFFFFFF); // White
+                }
+            }
+        }
+        return binarized;
     }
 
     @Override
@@ -184,8 +248,20 @@ public class AdaptadorAnalogicoModeloB implements IProcessadorImagem {
                     }
 
                     if (idSHA != null) {
-                        com.cagepa.pmg.sgu.Usuario u = sgu.getUsuarioPorId(idSHA);
-                        if (u == null || !"B".equalsIgnoreCase(u.getModeloAdapter())) {
+                        com.cagepa.pmg.sgu.Usuario u = sgu.getUsuarioPorHidrometro(idSHA);
+                        if (u == null) {
+                            continue;
+                        }
+
+                        boolean isModelB = false;
+                        for (com.cagepa.pmg.sgu.Hidrometro h : u.getHidrometros()) {
+                            if (h.getId().equals(idSHA) && "B".equalsIgnoreCase(h.getModelo())) {
+                                isModelB = true;
+                                break;
+                            }
+                        }
+
+                        if (!isModelB) {
                             continue;
                         }
 
@@ -223,9 +299,13 @@ public class AdaptadorAnalogicoModeloB implements IProcessadorImagem {
         if (idSHA != null) {
             // Verify if user is Model B
             com.cagepa.pmg.sgu.SGU sgu = new com.cagepa.pmg.sgu.SGU();
-            com.cagepa.pmg.sgu.Usuario u = sgu.getUsuarioPorId(idSHA);
-            if (u != null && "B".equalsIgnoreCase(u.getModeloAdapter())) {
-                return new LeituraDados(idSHA, imagem);
+            com.cagepa.pmg.sgu.Usuario u = sgu.getUsuarioPorHidrometro(idSHA);
+            if (u != null) {
+                for (com.cagepa.pmg.sgu.Hidrometro h : u.getHidrometros()) {
+                    if (h.getId().equals(idSHA) && "B".equalsIgnoreCase(h.getModelo())) {
+                        return new LeituraDados(idSHA, imagem);
+                    }
+                }
             }
         }
         return null;

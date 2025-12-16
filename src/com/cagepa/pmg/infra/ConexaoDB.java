@@ -18,30 +18,25 @@ public class ConexaoDB {
     }
 
     public static void inicializarBanco() {
-        String sql = "CREATE TABLE IF NOT EXISTS usuarios (" +
+        String sqlUsuarios = "CREATE TABLE IF NOT EXISTS usuarios (" +
                 "id TEXT PRIMARY KEY," +
                 "nome TEXT NOT NULL," +
                 "senha TEXT NOT NULL," +
-                "tipo TEXT NOT NULL," +
-                "modelo_adapter TEXT" + // New column
+                "tipo TEXT NOT NULL" +
+                ");";
+
+        String sqlHidrometros = "CREATE TABLE IF NOT EXISTS hidrometros (" +
+                "id TEXT PRIMARY KEY," +
+                "id_usuario TEXT NOT NULL," +
+                "modelo TEXT NOT NULL," +
+                "consumo_atual REAL DEFAULT 0.0," +
+                "FOREIGN KEY(id_usuario) REFERENCES usuarios(id)" +
                 ");";
 
         try (Connection conn = conectar();
                 Statement stmt = conn.createStatement()) {
-            stmt.execute(sql);
-
-            // Migration for existing tables without the column
-            try {
-                stmt.execute("ALTER TABLE usuarios ADD COLUMN modelo_adapter TEXT");
-            } catch (SQLException e) {
-                // Column likely already exists, ignore
-            }
-
-            try {
-                stmt.execute("ALTER TABLE usuarios ADD COLUMN consumo_atual REAL DEFAULT 0.0");
-            } catch (SQLException e) {
-                // Column likely already exists, ignore
-            }
+            stmt.execute(sqlUsuarios);
+            stmt.execute(sqlHidrometros);
 
             Logger.getInstance().logInfo("Banco de dados inicializado com sucesso.");
         } catch (SQLException e) {

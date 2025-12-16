@@ -35,7 +35,7 @@ public class SAN {
 
         // Resolve User from SHA if SGU is available
         if (sgu != null) {
-            com.cagepa.pmg.sgu.Usuario usuario = sgu.getUsuarioPorSha(idSHA);
+            com.cagepa.pmg.sgu.Usuario usuario = sgu.getUsuarioPorHidrometro(idSHA);
             if (usuario != null) {
                 idUsuario = usuario.getId();
             }

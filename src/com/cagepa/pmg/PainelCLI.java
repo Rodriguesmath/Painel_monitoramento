@@ -1,7 +1,8 @@
 package com.cagepa.pmg;
 
-import com.cagepa.pmg.infra.Logger;
 import com.cagepa.pmg.sgu.TipoUsuario;
+import com.cagepa.pmg.sgu.Usuario;
+import com.cagepa.pmg.sgu.Hidrometro;
 import java.util.Scanner;
 import java.util.List;
 
@@ -14,7 +15,7 @@ public class PainelCLI {
         boolean logado = false;
         boolean isDebug = false;
 
-        Logger.getInstance().logInfo("CLI: Aplicação iniciada.");
+        fachada.logInfo("CLI: Aplicação iniciada.");
 
         while (executando) {
             if (!logado) {
@@ -35,17 +36,17 @@ public class PainelCLI {
                     logado = true;
                     isDebug = true;
                     tipo = TipoUsuario.ADMIN;
-                    Logger.getInstance().logInfo("CLI: Acesso DEBUG concedido.");
+                    fachada.logInfo("CLI: Acesso DEBUG concedido.");
                     System.out.println("\nLogin DEBUG realizado com sucesso!");
                 } else if (fachada.autenticar(usuario, senha)) {
                     logado = true;
                     isDebug = false;
                     tipo = fachada.getTipoUsuario(usuario);
-                    Logger.getInstance().logInfo("CLI: Login com sucesso para usuário: " + usuario);
+                    fachada.logInfo("CLI: Login com sucesso para usuário: " + usuario);
                     System.out.println("\nLogin realizado com sucesso! Perfil: " + tipo);
                 } else {
                     System.out.println("Credenciais inválidas. Tente novamente.");
-                    Logger.getInstance().logError("CLI: Tentativa de login falhou para usuário: " + usuario);
+                    fachada.logError("CLI: Tentativa de login falhou para usuário: " + usuario);
                     esperarEnter(scanner);
                     continue;
                 }
@@ -80,7 +81,7 @@ public class PainelCLI {
                             case "1":
                                 limparTela();
                                 System.out.println("=== Monitoramento em Tempo Real ===");
-                                Logger.getInstance().logInfo("CLI: Admin iniciou monitoramento.");
+                                fachada.logInfo("CLI: Admin iniciou monitoramento.");
                                 System.out.println("Iniciando monitoramento...");
                                 fachada.iniciarMonitoramento();
 
@@ -91,15 +92,23 @@ public class PainelCLI {
                                         try {
                                             limparTela();
                                             System.out.println("=== Monitoramento em Tempo Real ===");
-                                            List<com.cagepa.pmg.sgu.Usuario> users = fachada.listarUsuarios();
-                                            for (com.cagepa.pmg.sgu.Usuario u : users) {
+                                            List<Usuario> users = fachada.listarUsuarios();
+                                            for (Usuario u : users) {
                                                 if (u.getTipo() == TipoUsuario.ADMIN)
                                                     continue;
-                                                String status = fachada.getStatusHidrometro(u.getId());
-                                                System.out.printf(
-                                                        "Nome: %-20s | Modelo: %-2s | Status: %-12s | Consumo: %.2f%n",
-                                                        u.getNome(), u.getModeloAdapter(), status,
-                                                        u.getConsumoAtual());
+
+                                                List<Hidrometro> hidros = u.getHidrometros();
+                                                if (hidros.isEmpty()) {
+                                                    System.out.printf("Nome: %-20s | Sem hidrômetros%n", u.getNome());
+                                                } else {
+                                                    for (Hidrometro h : hidros) {
+                                                        String status = fachada.getStatusHidrometro(h.getId());
+                                                        System.out.printf(
+                                                                "Nome: %-20s | ID: %-10s | Modelo: %-2s | Status: %-12s | Consumo: %.2f%n",
+                                                                u.getNome(), h.getId(), h.getModelo(), status,
+                                                                h.getConsumoAtual());
+                                                    }
+                                                }
                                             }
                                             System.out.println("\n(Pressione ENTER para voltar ao menu)");
                                             Thread.sleep(2000);
@@ -128,7 +137,7 @@ public class PainelCLI {
                                 System.out.print("Tipo (EMAIL/SMS): ");
                                 String tNotif = scanner.nextLine();
                                 fachada.configurarAlerta(idAlvo, lim, tNotif);
-                                Logger.getInstance().logInfo("CLI: Alerta configurado para " + idAlvo);
+                                fachada.logInfo("CLI: Alerta configurado para " + idAlvo);
                                 break;
                             case "3":
                                 limparTela();
@@ -138,7 +147,7 @@ public class PainelCLI {
                                 System.out.print("ID Usuário: ");
                                 String idRel = scanner.nextLine();
                                 fachada.gerarRelatorio(tRel, idRel);
-                                Logger.getInstance().logInfo("CLI: Relatório gerado para " + idRel);
+                                fachada.logInfo("CLI: Relatório gerado para " + idRel);
                                 break;
                             case "4":
                                 boolean subMenuGestao = true;
@@ -146,9 +155,10 @@ public class PainelCLI {
                                     limparTela();
                                     System.out.println("=== Gestão de Usuários ===");
                                     System.out.println("1. Cadastrar Usuário");
-                                    System.out.println("2. Listar Usuários");
-                                    System.out.println("3. Atualizar Senha");
-                                    System.out.println("4. Deletar Usuário");
+                                    System.out.println("2. Cadastrar Hidrômetro");
+                                    System.out.println("3. Listar Usuários");
+                                    System.out.println("4. Atualizar Senha");
+                                    System.out.println("5. Deletar Usuário");
                                     System.out.println("0. Voltar");
                                     System.out.print("\nEscolha uma opção: ");
                                     String subOpcao = scanner.nextLine();
@@ -167,25 +177,42 @@ public class PainelCLI {
                                             String nTipoStr = scanner.nextLine();
                                             TipoUsuario nTipo = "ADMIN".equalsIgnoreCase(nTipoStr) ? TipoUsuario.ADMIN
                                                     : TipoUsuario.PADRAO;
-                                            System.out.print("Modelo do Adaptador (A/B/C): ");
-                                            String nModelo = scanner.nextLine();
-                                            fachada.cadastrarUsuario(nId, nNome, nSenha, nTipo, nModelo);
-                                            Logger.getInstance().logInfo("CLI: Novo usuário cadastrado: " + nId);
+                                            fachada.cadastrarUsuario(nId, nNome, nSenha, nTipo);
+                                            fachada.logInfo("CLI: Novo usuário cadastrado: " + nId);
                                             esperarEnter(scanner);
                                             break;
                                         case "2":
                                             limparTela();
-                                            System.out.println("=== Lista de Usuários ===");
-                                            List<com.cagepa.pmg.sgu.Usuario> usuarios = fachada.listarUsuarios();
-                                            for (com.cagepa.pmg.sgu.Usuario u : usuarios) {
-                                                System.out.printf(
-                                                        "Nome: %-20s | Modelo: %-2s | Consumo: %.2f%n",
-                                                        u.getNome(), u.getModeloAdapter(),
-                                                        u.getConsumoAtual());
-                                            }
+                                            System.out.println("=== Cadastrar Hidrômetro ===");
+                                            System.out.print("ID do Usuário: ");
+                                            String idUserH = scanner.nextLine();
+                                            System.out.print("ID do Hidrômetro (SHA): ");
+                                            String idHidro = scanner.nextLine();
+                                            System.out.print("Modelo (A/B/C): ");
+                                            String modH = scanner.nextLine();
+                                            fachada.adicionarHidrometro(idUserH, idHidro, modH);
                                             esperarEnter(scanner);
                                             break;
                                         case "3":
+                                            limparTela();
+                                            System.out.println("=== Lista de Usuários ===");
+                                            List<Usuario> usuarios = fachada.listarUsuarios();
+                                            for (Usuario u : usuarios) {
+                                                List<Hidrometro> hidros = u.getHidrometros();
+                                                if (hidros.isEmpty()) {
+                                                    System.out.printf("Nome: %-20s | Sem hidrômetros%n", u.getNome());
+                                                } else {
+                                                    for (Hidrometro h : hidros) {
+                                                        System.out.printf(
+                                                                "Nome: %-20s | ID: %-10s | Modelo: %-2s | Consumo: %.2f%n",
+                                                                u.getNome(), h.getId(), h.getModelo(),
+                                                                h.getConsumoAtual());
+                                                    }
+                                                }
+                                            }
+                                            esperarEnter(scanner);
+                                            break;
+                                        case "4":
                                             limparTela();
                                             System.out.println("=== Atualizar Senha ===");
                                             System.out.print("ID do Usuário: ");
@@ -193,16 +220,16 @@ public class PainelCLI {
                                             System.out.print("Nova Senha: ");
                                             String novaSenha = scanner.nextLine();
                                             fachada.atualizarSenha(idUpd, novaSenha);
-                                            Logger.getInstance().logInfo("CLI: Senha atualizada para " + idUpd);
+                                            fachada.logInfo("CLI: Senha atualizada para " + idUpd);
                                             esperarEnter(scanner);
                                             break;
-                                        case "4":
+                                        case "5":
                                             limparTela();
                                             System.out.println("=== Deletar Usuário ===");
                                             System.out.print("ID do Usuário a deletar: ");
                                             String idDel = scanner.nextLine();
                                             fachada.deletarUsuario(idDel);
-                                            Logger.getInstance().logInfo("CLI: Usuário deletado: " + idDel);
+                                            fachada.logInfo("CLI: Usuário deletado: " + idDel);
                                             esperarEnter(scanner);
                                             break;
                                         case "0":
@@ -225,7 +252,7 @@ public class PainelCLI {
                                 break;
                             case "0":
                                 logado = false;
-                                Logger.getInstance().logInfo("CLI: Logout realizado.");
+                                fachada.logInfo("CLI: Logout realizado.");
                                 break;
                             default:
                                 System.out.println("Opção inválida.");
@@ -240,7 +267,7 @@ public class PainelCLI {
                                 System.out.print("Tipo (EMAIL/SMS): ");
                                 String tNotif = scanner.nextLine();
                                 fachada.configurarAlerta(usuario, lim, tNotif);
-                                Logger.getInstance().logInfo("CLI: Alerta pessoal configurado para " + usuario);
+                                fachada.logInfo("CLI: Alerta pessoal configurado para " + usuario);
                                 break;
                             case "2":
                                 limparTela();
@@ -248,7 +275,7 @@ public class PainelCLI {
                                 System.out.print("Tipo (PDF/CSV): ");
                                 String tRel = scanner.nextLine();
                                 fachada.gerarRelatorio(tRel, usuario);
-                                Logger.getInstance().logInfo("CLI: Relatório pessoal gerado para " + usuario);
+                                fachada.logInfo("CLI: Relatório pessoal gerado para " + usuario);
                                 break;
                             case "3":
                                 limparTela();
@@ -256,11 +283,11 @@ public class PainelCLI {
                                 System.out.print("Nova Senha: ");
                                 String novaSenha = scanner.nextLine();
                                 fachada.atualizarSenha(usuario, novaSenha);
-                                Logger.getInstance().logInfo("CLI: Senha pessoal atualizada para " + usuario);
+                                fachada.logInfo("CLI: Senha pessoal atualizada para " + usuario);
                                 break;
                             case "0":
                                 logado = false;
-                                Logger.getInstance().logInfo("CLI: Logout realizado.");
+                                fachada.logInfo("CLI: Logout realizado.");
                                 break;
                             default:
                                 System.out.println("Opção inválida.");
@@ -274,7 +301,7 @@ public class PainelCLI {
             }
         }
         scanner.close();
-        Logger.getInstance().logInfo("CLI: Aplicação encerrada.");
+        fachada.logInfo("CLI: Aplicação encerrada.");
     }
 
     private static void limparTela() {

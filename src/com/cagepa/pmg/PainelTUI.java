@@ -2,6 +2,7 @@ package com.cagepa.pmg;
 
 import com.cagepa.pmg.sgu.TipoUsuario;
 import com.cagepa.pmg.sgu.Usuario;
+import com.cagepa.pmg.sgu.Hidrometro;
 import com.googlecode.lanterna.TerminalSize;
 import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.graphics.SimpleTheme;
@@ -168,9 +169,10 @@ public class PainelTUI {
         Panel menuPanel = new Panel(new GridLayout(2));
 
         menuPanel.addComponent(new Button("1. Cadastrar Usuário", () -> showCadastrarUsuario()));
-        menuPanel.addComponent(new Button("2. Listar Usuários", () -> showListarUsuarios()));
-        menuPanel.addComponent(new Button("3. Atualizar Senha", () -> showAtualizarSenha(null)));
-        menuPanel.addComponent(new Button("4. Deletar Usuário", () -> showDeletarUsuario()));
+        menuPanel.addComponent(new Button("2. Cadastrar Hidrômetro", () -> showCadastrarHidrometro()));
+        menuPanel.addComponent(new Button("3. Listar Usuários", () -> showListarUsuarios()));
+        menuPanel.addComponent(new Button("4. Atualizar Senha", () -> showAtualizarSenha(null)));
+        menuPanel.addComponent(new Button("5. Deletar Usuário", () -> showDeletarUsuario()));
 
         mainPanel.addComponent(menuPanel.withBorder(Borders.singleLine("Opções")));
 
@@ -232,9 +234,17 @@ public class PainelTUI {
                         if (u.getTipo() == TipoUsuario.ADMIN)
                             continue;
 
-                        String status = fachada.getStatusHidrometro(u.getId());
-                        sb.append(String.format("Nome: %-20s | Modelo: %-2s | Status: %-12s | Consumo: %.2f\n",
-                                u.getNome(), u.getModeloAdapter(), status, u.getConsumoAtual()));
+                        List<Hidrometro> hidros = u.getHidrometros();
+                        if (hidros.isEmpty()) {
+                            sb.append(String.format("Nome: %-20s | Sem hidrômetros\n", u.getNome()));
+                        } else {
+                            for (Hidrometro h : hidros) {
+                                String status = fachada.getStatusHidrometro(h.getId());
+                                sb.append(String.format(
+                                        "Nome: %-20s | ID: %-10s | Modelo: %-2s | Status: %-12s | Consumo: %.2f\n",
+                                        u.getNome(), h.getId(), h.getModelo(), status, h.getConsumoAtual()));
+                            }
+                        }
                     }
                     String finalStatus = sb.toString();
                     if (finalStatus.isEmpty())
@@ -353,17 +363,47 @@ public class PainelTUI {
         ComboBox<TipoUsuario> cbTipo = new ComboBox<>(TipoUsuario.values());
         panel.addComponent(cbTipo);
 
-        panel.addComponent(new Label("Modelo Adaptador:"));
+        panel.addComponent(new EmptySpace(new TerminalSize(0, 1)));
+
+        Panel btnPanel = new Panel(new LinearLayout(Direction.HORIZONTAL));
+        btnPanel.addComponent(new Button("Cadastrar", () -> {
+            fachada.cadastrarUsuario(txtId.getText(), txtNome.getText(), txtSenha.getText(), cbTipo.getSelectedItem());
+            MessageDialog.showMessageDialog(gui, "Sucesso", "Usuário cadastrado!", MessageDialogButton.OK);
+            window.close();
+        }));
+        btnPanel.addComponent(new Button("Cancelar", window::close));
+
+        Panel mainPanel = new Panel();
+        mainPanel.addComponent(panel);
+        mainPanel.addComponent(btnPanel);
+
+        window.setComponent(mainPanel.withBorder(Borders.singleLine()));
+        gui.addWindowAndWait(window);
+    }
+
+    private static void showCadastrarHidrometro() {
+        BasicWindow window = new BasicWindow("Cadastrar Hidrômetro");
+        window.setHints(Arrays.asList(Window.Hint.CENTERED));
+        Panel panel = new Panel(new GridLayout(2));
+
+        panel.addComponent(new Label("ID Usuário:"));
+        TextBox txtIdUser = new TextBox();
+        panel.addComponent(txtIdUser);
+
+        panel.addComponent(new Label("ID Hidrômetro (SHA):"));
+        TextBox txtIdHidro = new TextBox();
+        panel.addComponent(txtIdHidro);
+
+        panel.addComponent(new Label("Modelo:"));
         ComboBox<String> cbModelo = new ComboBox<>("A", "B", "C");
         panel.addComponent(cbModelo);
 
         panel.addComponent(new EmptySpace(new TerminalSize(0, 1)));
 
         Panel btnPanel = new Panel(new LinearLayout(Direction.HORIZONTAL));
-        btnPanel.addComponent(new Button("Cadastrar", () -> {
-            fachada.cadastrarUsuario(txtId.getText(), txtNome.getText(), txtSenha.getText(), cbTipo.getSelectedItem(),
-                    cbModelo.getSelectedItem());
-            MessageDialog.showMessageDialog(gui, "Sucesso", "Usuário cadastrado!", MessageDialogButton.OK);
+        btnPanel.addComponent(new Button("Adicionar", () -> {
+            fachada.adicionarHidrometro(txtIdUser.getText(), txtIdHidro.getText(), cbModelo.getSelectedItem());
+            MessageDialog.showMessageDialog(gui, "Sucesso", "Hidrômetro adicionado!", MessageDialogButton.OK);
             window.close();
         }));
         btnPanel.addComponent(new Button("Cancelar", window::close));
@@ -383,8 +423,15 @@ public class PainelTUI {
 
         List<Usuario> usuarios = fachada.listarUsuarios();
         for (Usuario u : usuarios) {
-            panel.addComponent(new Label(String.format("Nome: %s | Modelo: %s | Consumo: %.2f",
-                    u.getNome(), u.getModeloAdapter(), u.getConsumoAtual())));
+            List<Hidrometro> hidros = u.getHidrometros();
+            if (hidros.isEmpty()) {
+                panel.addComponent(new Label(String.format("Nome: %s | Sem hidrômetros", u.getNome())));
+            } else {
+                for (Hidrometro h : hidros) {
+                    panel.addComponent(new Label(String.format("Nome: %s | ID: %s | Modelo: %s | Consumo: %.2f",
+                            u.getNome(), h.getId(), h.getModelo(), h.getConsumoAtual())));
+                }
+            }
         }
 
         panel.addComponent(new EmptySpace(new TerminalSize(0, 1)));

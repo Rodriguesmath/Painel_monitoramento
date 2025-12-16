@@ -8,40 +8,26 @@ public class Usuario {
     private String nome;
     private String senha;
     private TipoUsuario tipo;
-    private String modeloAdapter; // New field
-    private double consumoAtual; // New field
-    private List<String> shasAssociados;
+    private List<Hidrometro> hidrometros;
 
-    public Usuario(String id, String nome, String senha, TipoUsuario tipo, String modeloAdapter) {
+    public Usuario(String id, String nome, String senha, TipoUsuario tipo) {
         this.id = id;
         this.nome = nome;
         this.senha = senha;
         this.tipo = tipo;
-        this.modeloAdapter = modeloAdapter;
-        this.consumoAtual = 0.0;
-        this.shasAssociados = new ArrayList<>();
-    }
-
-    public Usuario(String id, String nome, String senha, TipoUsuario tipo, String modeloAdapter, double consumoAtual) {
-        this.id = id;
-        this.nome = nome;
-        this.senha = senha;
-        this.tipo = tipo;
-        this.modeloAdapter = modeloAdapter;
-        this.consumoAtual = consumoAtual;
-        this.shasAssociados = new ArrayList<>();
+        this.hidrometros = new ArrayList<>();
     }
 
     public String getSenha() {
         return senha;
     }
 
-    public void adicionarSha(String idSha) {
-        this.shasAssociados.add(idSha);
+    public void adicionarHidrometro(Hidrometro h) {
+        this.hidrometros.add(h);
     }
 
-    public boolean possuiSha(String idSha) {
-        return this.shasAssociados.contains(idSha);
+    public List<Hidrometro> getHidrometros() {
+        return hidrometros;
     }
 
     public String getId() {
@@ -58,23 +44,5 @@ public class Usuario {
 
     public TipoUsuario getTipo() {
         return tipo;
-    }
-
-    public String getModeloAdapter() {
-        return modeloAdapter;
-    }
-
-    public double getConsumoAtual() {
-        return consumoAtual;
-    }
-
-    public void setConsumoAtual(double consumoAtual) {
-        this.consumoAtual = consumoAtual;
-    }
-
-    public List<String> getShas() {
-        List<String> shas = new ArrayList<>(shasAssociados);
-        shas.add(id); // Automatically associate ID as a SHA
-        return shas;
     }
 }

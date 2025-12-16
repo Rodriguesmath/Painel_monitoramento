@@ -185,14 +185,23 @@ public class AdaptadorAnalogicoModeloA implements IProcessadorImagem {
                     }
 
                     if (idSHA != null) {
-                        // BINDING CHECK: Verify if user is assigned to Model A
-                        com.cagepa.pmg.sgu.Usuario u = sgu.getUsuarioPorId(idSHA);
+                        // BINDING CHECK: Verify if this SHA is registered as Model A
+                        com.cagepa.pmg.sgu.Usuario u = sgu.getUsuarioPorHidrometro(idSHA);
                         if (u == null) {
-                            // System.out.println("DEBUG: Usuario nao encontrado: " + idSHA);
+                            // System.out.println("DEBUG: Usuario nao encontrado para SHA: " + idSHA);
                             continue;
                         }
-                        if (!"A".equalsIgnoreCase(u.getModeloAdapter())) {
-                            // System.out.println("DEBUG: Usuario " + idSHA + " nao e Modelo A");
+
+                        boolean isModelA = false;
+                        for (com.cagepa.pmg.sgu.Hidrometro h : u.getHidrometros()) {
+                            if (h.getId().equals(idSHA) && "A".equalsIgnoreCase(h.getModelo())) {
+                                isModelA = true;
+                                break;
+                            }
+                        }
+
+                        if (!isModelA) {
+                            // System.out.println("DEBUG: SHA " + idSHA + " nao e Modelo A");
                             continue;
                         }
 

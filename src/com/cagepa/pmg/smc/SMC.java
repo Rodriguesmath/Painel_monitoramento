@@ -12,6 +12,8 @@ import com.cagepa.pmg.smc.adapter.LeituraDados;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import com.cagepa.pmg.sgu.Usuario;
+import com.cagepa.pmg.sgu.Hidrometro;
 
 public class SMC {
     private List<SAN> observers = new ArrayList<>();
@@ -225,41 +227,49 @@ public class SMC {
         }
     }
 
-    public String getStatusHidrometro(String idUsuario) {
-        com.cagepa.pmg.sgu.Usuario u = sgu.getUsuarioPorId(idUsuario);
-        if (u == null)
-            return "USUÁRIO NÃO ENCONTRADO";
+    public String getStatusHidrometro(String idHidrometro) {
+        // Find the user who owns this hydrometer to know the model
+        // Or better, we can iterate adapters and see who claims it.
+        // But adapters don't know about specific hydrometers unless they are monitoring
+        // them.
 
-        // Iterate over adapters to find the one handling this user/model
-        // Since we don't have a direct map of User -> Adapter in SMC, we iterate all.
-        // Ideally, we should know which adapter handles which model.
-        // For now, we try all adapters.
-        for (IProcessadorImagem adapter : adaptadores) {
-            // We can check if the adapter supports the model if we add a method for that,
-            // or just let the adapter decide if it knows the status.
-            // But verificarStatus takes an ID.
-            String status = adapter.verificarStatus(idUsuario);
-            if (!"PARADO".equals(status) && !"DESCONHECIDO (Modelo C não suportado)".equals(status)) {
-                return status;
-            }
-            // If it returns PARADO, it might be the right adapter but the device is
-            // stopped.
-            // Or it might be the wrong adapter.
-            // This logic is a bit flawed if multiple adapters return PARADO.
-
-            // Better approach: Check model string
-            if ("A".equalsIgnoreCase(u.getModeloAdapter())
-                    && adapter instanceof com.cagepa.pmg.smc.adapter.AdaptadorAnalogicoModeloA) {
-                return adapter.verificarStatus(idUsuario);
-            } else if ("B".equalsIgnoreCase(u.getModeloAdapter())
-                    && adapter instanceof com.cagepa.pmg.smc.adapter.AdaptadorAnalogicoModeloB) {
-                return adapter.verificarStatus(idUsuario);
-            } else if ("C".equalsIgnoreCase(u.getModeloAdapter())
-                    && adapter instanceof com.cagepa.pmg.smc.adapter.AdaptadorAnalogicoModeloC) {
-                return adapter.verificarStatus(idUsuario);
+        // Let's find the hydrometer owner first to get the model
+        Usuario u = sgu.getUsuarioPorHidrometro(idHidrometro);
+        String modelo = null;
+        if (u != null) {
+            for (Hidrometro h : u.getHidrometros()) {
+                if (h.getId().equals(idHidrometro)) {
+                    modelo = h.getModelo();
+                    break;
+                }
             }
         }
-        return "PARADO"; // Default if no active status found
+
+        if (modelo == null) {
+            // Fallback: try all adapters
+            for (IProcessadorImagem adapter : adaptadores) {
+                String status = adapter.verificarStatus(idHidrometro);
+                if (!"PARADO".equals(status) && !"DESCONHECIDO (Modelo C não suportado)".equals(status)) {
+                    return status;
+                }
+            }
+            return "PARADO";
+        }
+
+        // Check specific adapter based on model
+        for (IProcessadorImagem adapter : adaptadores) {
+            if ("A".equalsIgnoreCase(modelo)
+                    && adapter instanceof com.cagepa.pmg.smc.adapter.AdaptadorAnalogicoModeloA) {
+                return adapter.verificarStatus(idHidrometro);
+            } else if ("B".equalsIgnoreCase(modelo)
+                    && adapter instanceof com.cagepa.pmg.smc.adapter.AdaptadorAnalogicoModeloB) {
+                return adapter.verificarStatus(idHidrometro);
+            } else if ("C".equalsIgnoreCase(modelo)
+                    && adapter instanceof com.cagepa.pmg.smc.adapter.AdaptadorAnalogicoModeloC) {
+                return adapter.verificarStatus(idHidrometro);
+            }
+        }
+        return "PARADO";
     }
 
     private void notificarObservers(String idSHA, double valor) {
