@@ -12,10 +12,19 @@ import java.util.List;
 public class SGU {
 
     public SGU() {
-        ConexaoDB.inicializarBanco();
-        // Ensure admin exists
-        if (getUsuarioPorId("admin") == null) {
-            cadastrarUsuario("admin", "Administrador", "admin", TipoUsuario.ADMIN);
+        // Constructor is now lightweight to avoid DB Locking.
+        // DB Initialization and Admin creation must be handled by the main application
+        // (Fachada/CLI).
+    }
+
+    public void resetarConsumos() {
+        String sql = "UPDATE hidrometros SET consumo_atual = 0.0";
+        try (Connection conn = ConexaoDB.conectar();
+                PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.executeUpdate();
+            Logger.getInstance().logInfo("SGU: Todos os consumos foram resetados para 0.0 (Inicialização).");
+        } catch (SQLException e) {
+            Logger.getInstance().logError("SGU: Erro ao resetar consumos: " + e.getMessage());
         }
     }
 
@@ -75,51 +84,25 @@ public class SGU {
     }
 
     public void atualizarConsumo(String idHidrometro, double novaLeitura) {
-        // First, get current state to check for reset
-        String selectSql = "SELECT consumo_atual, offset FROM hidrometros WHERE id = ?";
-        double leituraAtual = 0.0;
-        double offsetAtual = 0.0;
-        boolean found = false;
-
-        try (Connection conn = ConexaoDB.conectar();
-                PreparedStatement pstmt = conn.prepareStatement(selectSql)) {
-            pstmt.setString(1, idHidrometro);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                leituraAtual = rs.getDouble("consumo_atual");
-                offsetAtual = rs.getDouble("offset");
-                found = true;
-            }
-        } catch (SQLException e) {
-            Logger.getInstance().logError("SGU: Erro ao ler consumo atual: " + e.getMessage());
-            return;
-        }
-
-        if (!found) {
-            Logger.getInstance().logError("SGU: Hidrômetro não encontrado para atualização: " + idHidrometro);
-            return;
-        }
-
-        // Logic: If new reading is smaller than current reading (and not 0 initially),
-        // assume reset
-        if (novaLeitura < leituraAtual) {
-            Logger.getInstance().logInfo("SGU: Detectado reinício do simulador para " + idHidrometro +
-                    ". Leitura anterior: " + leituraAtual + ", Nova: " + novaLeitura);
-            offsetAtual += leituraAtual;
-        }
-
         String updateSql = "UPDATE hidrometros SET consumo_atual = ?, offset = ? WHERE id = ?";
+
         try (Connection conn = ConexaoDB.conectar();
-                PreparedStatement pstmt = conn.prepareStatement(updateSql)) {
-            pstmt.setDouble(1, novaLeitura);
-            pstmt.setDouble(2, offsetAtual);
-            pstmt.setString(3, idHidrometro);
-            pstmt.executeUpdate();
-            // Logger.getInstance().logInfo("SGU: Consumo atualizado. Total: " +
-            // (novaLeitura + offsetAtual));
+                PreparedStatement pstmtUpdate = conn.prepareStatement(updateSql)) {
+
+            pstmtUpdate.setDouble(1, novaLeitura);
+            pstmtUpdate.setDouble(2, 0.0); // Offset removed/reset to 0
+            pstmtUpdate.setString(3, idHidrometro);
+
+            int rowsAffected = pstmtUpdate.executeUpdate();
+
+            if (rowsAffected == 0) {
+                Logger.getInstance().logError("SGU: Hidrômetro não encontrado para atualização: " + idHidrometro);
+            }
+
         } catch (SQLException e) {
             Logger.getInstance().logError("SGU: Erro ao atualizar consumo: " + e.getMessage());
         }
+
     }
 
     public Usuario getUsuarioPorId(String id) {
@@ -226,24 +209,38 @@ public class SGU {
     }
 
     public void deletarUsuario(String id) {
-        // First delete associated hydrometers
         String sqlHidro = "DELETE FROM hidrometros WHERE id_usuario = ?";
-        try (Connection conn = ConexaoDB.conectar();
-                PreparedStatement pstmt = conn.prepareStatement(sqlHidro)) {
-            pstmt.setString(1, id);
-            pstmt.executeUpdate();
-        } catch (SQLException e) {
-            Logger.getInstance().logError("SGU: Erro ao deletar hidrômetros do usuário: " + e.getMessage());
-        }
+        String sqlUser = "DELETE FROM usuarios WHERE id = ?";
 
-        String sql = "DELETE FROM usuarios WHERE id = ?";
-        try (Connection conn = ConexaoDB.conectar();
-                PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, id);
-            pstmt.executeUpdate();
-            Logger.getInstance().logInfo("SGU: Usuário deletado: " + id);
+        Connection conn = null;
+        try {
+            conn = ConexaoDB.conectar();
+            ConexaoDB.beginTransaction(conn);
+
+            try (PreparedStatement pstmtHidro = conn.prepareStatement(sqlHidro)) {
+                pstmtHidro.setString(1, id);
+                pstmtHidro.executeUpdate();
+            }
+
+            try (PreparedStatement pstmtUser = conn.prepareStatement(sqlUser)) {
+                pstmtUser.setString(1, id);
+                pstmtUser.executeUpdate();
+            }
+
+            ConexaoDB.commitTransaction(conn);
+            Logger.getInstance().logInfo("SGU: Usuário deletado com sucesso (Transação OK): " + id);
+
         } catch (SQLException e) {
-            Logger.getInstance().logError("SGU: Erro ao deletar usuário: " + e.getMessage());
+            ConexaoDB.rollbackTransaction(conn);
+            Logger.getInstance().logError("SGU: Erro ao deletar usuário (Rollback realizado): " + e.getMessage());
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.close();
+                } catch (SQLException e) {
+                    Logger.getInstance().logError("SGU: Erro ao fechar conexão: " + e.getMessage());
+                }
+            }
         }
     }
 

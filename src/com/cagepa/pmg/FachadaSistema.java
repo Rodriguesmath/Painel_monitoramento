@@ -21,7 +21,19 @@ public class FachadaSistema {
     private SAN san;
 
     public FachadaSistema() {
+        // Initialize Database explicitly at startup
+        com.cagepa.pmg.infra.ConexaoDB.inicializarBanco();
+
         this.sgu = new SGU();
+        // Ensure admin matches logic previously in SGU, but now centralized here to
+        // prevent locking issues
+        if (sgu.getUsuarioPorId("admin") == null) {
+            sgu.cadastrarUsuario("admin", "Administrador", "admin", TipoUsuario.ADMIN);
+        }
+
+        // Reset consumption on startup for presentation purposes
+        sgu.resetarConsumos();
+
         this.san = new SAN();
         this.san.setSgu(this.sgu);
         this.smc = new SMC();

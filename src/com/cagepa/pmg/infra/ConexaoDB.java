@@ -14,7 +14,14 @@ public class ConexaoDB {
         } catch (ClassNotFoundException e) {
             throw new SQLException("Driver SQLite não encontrado: " + e.getMessage());
         }
-        return DriverManager.getConnection(URL);
+        Connection conn = DriverManager.getConnection(URL);
+        try (Statement stmt = conn.createStatement()) {
+            // Configurar timeout para evitar "database is locked" (30 segundos)
+            stmt.execute("PRAGMA busy_timeout = 30000;");
+            // Ativar modo WAL para melhor concorrência
+            stmt.execute("PRAGMA journal_mode = WAL;");
+        }
+        return conn;
     }
 
     public static void inicializarBanco() {
@@ -43,6 +50,32 @@ public class ConexaoDB {
         } catch (SQLException e) {
             Logger.getInstance().logError("Erro ao inicializar banco de dados: " + e.getMessage());
             e.printStackTrace(); // Debugging
+        }
+    }
+
+    // Métodos auxiliares para transações
+    public static void beginTransaction(Connection conn) throws SQLException {
+        if (conn != null) {
+            conn.setAutoCommit(false);
+        }
+    }
+
+    public static void commitTransaction(Connection conn) throws SQLException {
+        if (conn != null) {
+            conn.commit();
+            conn.setAutoCommit(true); // Restaurar padrão
+        }
+    }
+
+    public static void rollbackTransaction(Connection conn) {
+        try {
+            if (conn != null) {
+                conn.rollback();
+                // Não restauramos autoCommit aqui pois a conexão provavelmente será fechada ou
+                // inutilizada
+            }
+        } catch (SQLException e) {
+            Logger.getInstance().logError("Erro ao realizar rollback: " + e.getMessage());
         }
     }
 }

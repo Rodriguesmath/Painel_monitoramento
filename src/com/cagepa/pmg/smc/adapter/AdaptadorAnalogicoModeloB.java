@@ -48,7 +48,7 @@ public class AdaptadorAnalogicoModeloB implements IProcessadorImagem {
                     "tesseract",
                     tempImage.getAbsolutePath(),
                     "stdout",
-                    "--psm", "7",
+                    "--psm", "6",
                     "-c", "tessedit_char_whitelist=0123456789");
             Process p = pb.start();
 
@@ -82,9 +82,14 @@ public class AdaptadorAnalogicoModeloB implements IProcessadorImagem {
                         double finalValue = rawValue / 100.0;
 
                         Logger.getInstance().logInfo(
-                                "Adapter B: Tesseract OCR realizado em " + imagem.getName() + " -> Valor: "
+                                "Adapter B: Tesseract OCR realizado em " + imagem.getName() + " -> Valor Bruto: "
                                         + finalValue);
-                        return finalValue;
+
+                        // Apply Smart Rounding (Inference)
+                        double roundedValue = aplicarArredondamentoInteligente(finalValue);
+                        Logger.getInstance().logInfo("Adapter B: Valor Arredondado: " + roundedValue);
+
+                        return roundedValue;
                     } catch (NumberFormatException e) {
                         Logger.getInstance().logError("Adapter B: Falha ao converter valor limpo: " + cleaned);
                     }
@@ -107,33 +112,68 @@ public class AdaptadorAnalogicoModeloB implements IProcessadorImagem {
             Logger.getInstance().logInfo("Adapter B: Tesseract erro de execução: " + e.getMessage());
             e.printStackTrace();
         } finally {
-            if (tempImage != null && tempImage.exists()) {
-                tempImage.delete();
-            }
+            // Debug: Keep file
+            // if (tempImage != null && tempImage.exists()) {
+            // tempImage.delete();
+            // }
         }
 
-        // Fallback: Parse filename if OCR fails
-        String nome = imagem.getName();
-        try {
-            String valorStr = nome.substring(0, nome.lastIndexOf('.'));
-            double valor = Double.parseDouble(valorStr);
-            Logger.getInstance()
-                    .logInfo("Adapter B: Fallback OCR (nome do arquivo) em " + nome + " -> Valor: " + valor);
-            return valor;
-        } catch (NumberFormatException e) {
-            return 0.0;
-        }
+        // If Tesseract fails, return 0.0 (No Fallback)
+        Logger.getInstance().logError("Adapter B: Falha no OCR para " + imagem.getName());
+        return 0.0;
+    }
+
+    private double aplicarArredondamentoInteligente(double valor) {
+        // Round to nearest 0.1 to eliminate OCR noise (e.g., 0.07 deviation)
+        // 19.38 -> 19.40
+        return Math.round(valor * 10.0) / 10.0;
     }
 
     private File preprocessarImagem(File original) throws java.io.IOException {
-        java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(original);
+        int maxRetries = 5;
+        for (int i = 0; i < maxRetries; i++) {
+            if (original.exists() && original.length() > 0) {
+                break;
+            }
+            try {
+                Thread.sleep(100); // Esperar 100ms antes de tentar novamente
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new java.io.IOException("Interrompido enquanto esperava pela imagem");
+            }
+        }
+
+        if (!original.exists() || original.length() == 0) {
+            throw new java.io.IOException(
+                    "Arquivo de imagem vazio ou inexistente após retentativas: " + original.getAbsolutePath());
+        }
+
+        java.awt.image.BufferedImage img = null;
+        try {
+            img = javax.imageio.ImageIO.read(original);
+        } catch (Exception e) {
+            // Ignorar erro pontual se for falha de decodificação momentânea
+        }
+
+        if (img == null) {
+            // Tentar mais uma vez após sleep maior se falhou no ImageIO
+            try {
+                Thread.sleep(200);
+            } catch (Exception e) {
+            }
+            img = javax.imageio.ImageIO.read(original);
+            if (img == null) {
+                throw new java.io.IOException(
+                        "Falha ao decodificar imagem (ImageIO retornou null): " + original.getAbsolutePath());
+            }
+        }
 
         // ROI Estimation based on HidrometroUI.cpp:
         // x_offset = 307, y_offset = 191 (baseline). Font size 18.
         // Digits span roughly from x=300 to x=450.
         // y range roughly 170 to 200.
         // Let's take a safe crop.
-        int x = 300;
+        int x = 300; // Original X
         int y = 160;
         int w = 160;
         int h = 50;
@@ -146,10 +186,21 @@ public class AdaptadorAnalogicoModeloB implements IProcessadorImagem {
 
         java.awt.image.BufferedImage cropped = img.getSubimage(x, y, w, h);
 
-        // Binarize the image (Thresholding)
-        java.awt.image.BufferedImage processed = binarizarImagem(cropped);
+        // Upscale the cropped image by 2x to improve OCR accuracy
+        int scaledW = w * 2;
+        int scaledH = h * 2;
+        java.awt.image.BufferedImage scaled = new java.awt.image.BufferedImage(scaledW, scaledH,
+                java.awt.image.BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D g2d = scaled.createGraphics();
+        g2d.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
+                java.awt.RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        g2d.drawImage(cropped, 0, 0, scaledW, scaledH, null);
+        g2d.dispose();
 
-        File tempFile = File.createTempFile("ocr_processed_", ".png");
+        // Binarize the image (Thresholding)
+        java.awt.image.BufferedImage processed = binarizarImagem(scaled);
+
+        File tempFile = new File("debug_processed.png"); // Fixed path for debugging
         javax.imageio.ImageIO.write(processed, "png", tempFile);
         return tempFile;
     }
@@ -167,9 +218,19 @@ public class AdaptadorAnalogicoModeloB implements IProcessadorImagem {
                 int r = (rgb >> 16) & 0xFF;
                 int g = (rgb >> 8) & 0xFF;
                 int b = (rgb & 0xFF);
-                int gray = (r + g + b) / 3;
+                // Use Min(G, B) to maximize darkness for Red (low G, low B) and Black (low G,
+                // low B)
+                // White has high G and high B.
+                int gray = Math.min(g, b);
                 grayData[x][y] = gray;
-                histogram[gray]++;
+            }
+        }
+
+        // Update histogram based on grayData (Original)
+        histogram = new int[256];
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                histogram[grayData[x][y]]++;
             }
         }
 
@@ -271,12 +332,24 @@ public class AdaptadorAnalogicoModeloB implements IProcessadorImagem {
                                 name.toLowerCase().endsWith(".png"));
 
                         if (imagens != null && imagens.length > 0) {
-                            java.util.Arrays.sort(imagens,
-                                    (f1, f2) -> Long.compare(f2.lastModified(), f1.lastModified()));
                             File maisRecente = imagens[0];
-                            Logger.getInstance().logInfo("Adapter B: Imagem mais recente encontrada: "
-                                    + maisRecente.getName() + " para " + idSHA);
-                            leituras.add(new LeituraDados(idSHA, maisRecente));
+                            long maxTime = maisRecente.lastModified();
+
+                            for (int i = 1; i < imagens.length; i++) {
+                                long time = imagens[i].lastModified();
+                                if (time > maxTime) {
+                                    maxTime = time;
+                                    maisRecente = imagens[i];
+                                }
+                            }
+
+                            // STRICT CHECK: Only process if image is recent (< 5 seconds)
+                            long diff = System.currentTimeMillis() - maxTime;
+                            if (diff < 5000) {
+                                Logger.getInstance().logInfo("Adapter B: Imagem recente encontrada: "
+                                        + maisRecente.getName() + " para " + idSHA);
+                                leituras.add(new LeituraDados(idSHA, maisRecente));
+                            }
                         }
                     }
                 }
@@ -337,10 +410,18 @@ public class AdaptadorAnalogicoModeloB implements IProcessadorImagem {
                                 name.toLowerCase().endsWith(".png"));
 
                         if (imagens != null && imagens.length > 0) {
-                            java.util.Arrays.sort(imagens,
-                                    (f1, f2) -> Long.compare(f2.lastModified(), f1.lastModified()));
                             File maisRecente = imagens[0];
-                            long diff = System.currentTimeMillis() - maisRecente.lastModified();
+                            long maxTime = maisRecente.lastModified();
+
+                            for (int i = 1; i < imagens.length; i++) {
+                                long time = imagens[i].lastModified();
+                                if (time > maxTime) {
+                                    maxTime = time;
+                                    maisRecente = imagens[i];
+                                }
+                            }
+
+                            long diff = System.currentTimeMillis() - maxTime;
                             // If image is younger than 5 seconds, it's running
                             if (diff < 5000) {
                                 return "EM EXECUÇÃO";

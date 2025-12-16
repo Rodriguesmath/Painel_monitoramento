@@ -62,7 +62,9 @@ public class SMC {
         // TimeUnit.SECONDS);
 
         // Schedule polling for adapters (Fallback for WatchService)
-        scheduler.scheduleAtFixedRate(this::pollAdapters, 0, 5, TimeUnit.SECONDS);
+        // Increased frequency to 1s to ensure responsiveness (User Feedback: "updates
+        // once per cycle")
+        scheduler.scheduleAtFixedRate(this::pollAdapters, 0, 1, TimeUnit.SECONDS);
 
         // Start the event loop in a separate thread
         new Thread(this::processEvents).start();
@@ -208,7 +210,72 @@ public class SMC {
 
     private com.cagepa.pmg.sgu.SGU sgu = new com.cagepa.pmg.sgu.SGU();
 
+    private java.util.Map<String, Integer> consecutiveZeros = new java.util.HashMap<>();
+    private static final int MAX_ZERO_TOLERANCE = 10;
+    private static final double MAX_JUMP_THRESHOLD = 5.0;
+
     private void processarLeituraIndividual(LeituraDados dados) {
+        // 1. Get previous value for Validation
+        double valorAnterior = 0.0;
+        Usuario u = sgu.getUsuarioPorHidrometro(dados.getIdSHA());
+        if (u != null) {
+            for (Hidrometro h : u.getHidrometros()) {
+                if (h.getId().equals(dados.getIdSHA())) {
+                    valorAnterior = h.getConsumoAtual();
+                    break;
+                }
+            }
+        }
+
+        double valorNovo = dados.getValor();
+
+        // 2. Inference Logic
+        // A) Gap Filling (Zero Tolerance)
+        if (valorNovo == 0.0 && valorAnterior > 0.0) {
+            int zeros = consecutiveZeros.getOrDefault(dados.getIdSHA(), 0);
+            zeros++;
+            consecutiveZeros.put(dados.getIdSHA(), zeros);
+
+            if (zeros <= MAX_ZERO_TOLERANCE) {
+                Logger.getInstance().logInfo("SMC: Leitura 0.0 detectada para " + dados.getIdSHA()
+                        + ". Usando valor anterior (Recuperação " + zeros + "/" + MAX_ZERO_TOLERANCE + ")");
+                valorNovo = valorAnterior;
+                dados.setValor(valorNovo); // Correct the data object
+            } else {
+                Logger.getInstance()
+                        .logError("SMC: Leitura 0.0 persistente para " + dados.getIdSHA()
+                                + ". Falha assumida. IGNORANDO ATUALIZAÇÃO.");
+                // STOP PROCESSING to avoid false reset detection in SGU
+                return;
+            }
+        } else {
+            // Reset counter if valid reading
+            if (valorNovo > 0.0) {
+                consecutiveZeros.put(dados.getIdSHA(), 0);
+            }
+
+            // B) Coherence Filter (Anti-Surge / Anti-Drop)
+            if (valorAnterior > 0.0) {
+                double diff = valorNovo - valorAnterior;
+
+                // Drop Check (Reverse flow or Bad OCR)
+                // Allow small -0.1 due to float jitter if not rounded perfectly, but strictly <
+                // -0.5 is error
+                if (diff < -0.5) {
+                    Logger.getInstance().logInfo("SMC: Leitura descartada (Queda brusca): " + valorAnterior + " -> "
+                            + valorNovo + " (" + dados.getIdSHA() + ")");
+                    return; // SKIP UPDATE
+                }
+
+                // Jump Check (Surge)
+                if (diff > MAX_JUMP_THRESHOLD) {
+                    Logger.getInstance().logInfo("SMC: Leitura descartada (Salto absurdo): " + valorAnterior + " -> "
+                            + valorNovo + " (" + dados.getIdSHA() + ")");
+                    return; // SKIP UPDATE
+                }
+            }
+        }
+
         // Update user consumption in DB
         sgu.atualizarConsumo(dados.getIdSHA(), dados.getValor());
 

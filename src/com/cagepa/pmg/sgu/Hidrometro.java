@@ -36,7 +36,7 @@ public class Hidrometro {
     }
 
     public double getConsumoTotal() {
-        return consumoAtual + offset;
+        return consumoAtual; // Offset removed as per request
     }
 
     public void setConsumoAtual(double consumoAtual) {

@@ -96,18 +96,9 @@ public class AdaptadorAnalogicoModeloA implements IProcessadorImagem {
             e.printStackTrace();
         }
 
-        // Fallback: Parse filename: "01.jpeg" -> 1.0
-        String nome = imagem.getName();
-        try {
-            String valorStr = nome.substring(0, nome.lastIndexOf('.'));
-            double valor = Double.parseDouble(valorStr);
-            Logger.getInstance()
-                    .logInfo("Adapter A: Fallback OCR (nome do arquivo) em " + nome + " -> Valor: " + valor);
-            return valor;
-        } catch (NumberFormatException e) {
-            Logger.getInstance().logError("Adapter A: Falha ao realizar OCR (nome inválido): " + nome);
-            return 0.0;
-        }
+        // If Tesseract fails, return 0.0 (No Fallback)
+        Logger.getInstance().logError("Adapter A: Falha no OCR para " + imagem.getName());
+        return 0.0;
     }
 
     @Override
@@ -130,10 +121,18 @@ public class AdaptadorAnalogicoModeloA implements IProcessadorImagem {
                                 name.toLowerCase().endsWith(".png"));
 
                         if (imagens != null && imagens.length > 0) {
-                            java.util.Arrays.sort(imagens,
-                                    (f1, f2) -> Long.compare(f2.lastModified(), f1.lastModified()));
                             File maisRecente = imagens[0];
-                            long diff = System.currentTimeMillis() - maisRecente.lastModified();
+                            long maxTime = maisRecente.lastModified();
+
+                            for (int i = 1; i < imagens.length; i++) {
+                                long time = imagens[i].lastModified();
+                                if (time > maxTime) {
+                                    maxTime = time;
+                                    maisRecente = imagens[i];
+                                }
+                            }
+
+                            long diff = System.currentTimeMillis() - maxTime;
                             // If image is younger than 5 seconds, it's running
                             if (diff < 5000) {
                                 return "EM EXECUÇÃO";
@@ -211,15 +210,24 @@ public class AdaptadorAnalogicoModeloA implements IProcessadorImagem {
                                 name.toLowerCase().endsWith(".png"));
 
                         if (imagens != null && imagens.length > 0) {
-                            // Sort by last modified descending
-                            java.util.Arrays.sort(imagens,
-                                    (f1, f2) -> Long.compare(f2.lastModified(), f1.lastModified()));
                             File maisRecente = imagens[0];
+                            long maxTime = maisRecente.lastModified();
 
-                            Logger.getInstance().logInfo("Adapter A: Imagem mais recente encontrada: "
-                                    + maisRecente.getName() + " para " + idSHA);
-                            // Return data with image for deferred processing
-                            leituras.add(new LeituraDados(idSHA, maisRecente));
+                            for (int i = 1; i < imagens.length; i++) {
+                                long time = imagens[i].lastModified();
+                                if (time > maxTime) {
+                                    maxTime = time;
+                                    maisRecente = imagens[i];
+                                }
+                            }
+
+                            // STRICT CHECK: Only process if image is recent (< 5 seconds)
+                            long diff = System.currentTimeMillis() - maxTime;
+                            if (diff < 5000) {
+                                Logger.getInstance().logInfo("Adapter A: Imagem recente encontrada: "
+                                        + maisRecente.getName() + " para " + idSHA);
+                                leituras.add(new LeituraDados(idSHA, maisRecente));
+                            }
                         } else {
                             // System.out.println("DEBUG: Nenhuma imagem encontrada em " + nomeDir);
                         }

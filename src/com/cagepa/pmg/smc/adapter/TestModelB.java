@@ -5,8 +5,7 @@ import java.io.File;
 public class TestModelB {
     public static void main(String[] args) {
         try {
-            File imageFile = new File(
-                    "/home/rodrigues/.gemini/antigravity/brain/1995ea8f-645b-41f3-835d-0fadba0f8a4d/uploaded_image_1765572689493.jpg");
+            File imageFile = new File("Simulador-Hidrometro-B/Medições_userB/411.jpeg");
             if (!imageFile.exists()) {
                 System.err.println("Image file not found: " + imageFile.getAbsolutePath());
                 return;
