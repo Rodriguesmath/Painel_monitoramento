@@ -188,7 +188,7 @@ public class PainelCLI {
                                             String idUserH = scanner.nextLine();
                                             System.out.print("ID do Hidrômetro (SHA): ");
                                             String idHidro = scanner.nextLine();
-                                            System.out.print("Modelo (A/B/C): ");
+                                            System.out.print("Modelo (A/B): ");
                                             String modH = scanner.nextLine();
                                             fachada.adicionarHidrometro(idUserH, idHidro, modH);
                                             esperarEnter(scanner);

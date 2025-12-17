@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class AdaptadorAnalogicoModeloB implements IProcessadorImagem {
+    private final java.util.Map<String, Long> lastProcessedTimes = new java.util.HashMap<>();
     private final List<File> diretoriosMonitorados;
 
     public AdaptadorAnalogicoModeloB() {
@@ -346,9 +347,14 @@ public class AdaptadorAnalogicoModeloB implements IProcessadorImagem {
                             // STRICT CHECK: Only process if image is recent (< 5 seconds)
                             long diff = System.currentTimeMillis() - maxTime;
                             if (diff < 5000) {
-                                Logger.getInstance().logInfo("Adapter B: Imagem recente encontrada: "
-                                        + maisRecente.getName() + " para " + idSHA);
-                                leituras.add(new LeituraDados(idSHA, maisRecente));
+                                // DEDUPLICATION: Check if this file timestamp was already processed
+                                long lastProcessed = lastProcessedTimes.getOrDefault(idSHA, 0L);
+                                if (maxTime > lastProcessed) {
+                                    Logger.getInstance().logInfo("Adapter B: Imagem recente encontrada: "
+                                            + maisRecente.getName() + " para " + idSHA);
+                                    leituras.add(new LeituraDados(idSHA, maisRecente));
+                                    lastProcessedTimes.put(idSHA, maxTime);
+                                }
                             }
                         }
                     }

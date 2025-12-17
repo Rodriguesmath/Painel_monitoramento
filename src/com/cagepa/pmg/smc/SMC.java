@@ -54,12 +54,8 @@ public class SMC {
 
         Logger.getInstance().logInfo("SMC: Iniciando monitoramento SÍNCRONO (WatchService)...");
         monitorando = true;
-        executor = Executors.newFixedThreadPool(5);
+        executor = Executors.newFixedThreadPool(2);
         scheduler = Executors.newSingleThreadScheduledExecutor();
-
-        // Schedule periodic processing (Debouncing) - REMOVED
-        // scheduler.scheduleAtFixedRate(this::processarPendencias, 0, 2,
-        // TimeUnit.SECONDS);
 
         // Schedule polling for adapters (Fallback for WatchService)
         // Increased frequency to 1s to ensure responsiveness (User Feedback: "updates
@@ -194,8 +190,6 @@ public class SMC {
         }
     }
 
-    // Removed processarPendencias as we are processing immediately
-
     private void processarLeitura(LeituraDados leitura, IProcessadorImagem adapter) {
         executor.submit(() -> {
             try {
@@ -292,11 +286,6 @@ public class SMC {
     }
 
     public String getStatusHidrometro(String idHidrometro) {
-        // Find the user who owns this hydrometer to know the model
-        // Or better, we can iterate adapters and see who claims it.
-        // But adapters don't know about specific hydrometers unless they are monitoring
-        // them.
-
         // Let's find the hydrometer owner first to get the model
         Usuario u = sgu.getUsuarioPorHidrometro(idHidrometro);
         String modelo = null;
