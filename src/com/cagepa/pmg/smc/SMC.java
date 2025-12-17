@@ -1,7 +1,9 @@
 package com.cagepa.pmg.smc;
 
 import com.cagepa.pmg.infra.Logger;
-import com.cagepa.pmg.san.SAN;
+
+// Removed direct SAN import to decouple
+// import com.cagepa.pmg.san.SAN;
 import com.cagepa.pmg.smc.adapter.IProcessadorImagem;
 import com.cagepa.pmg.smc.state.LeituraContext;
 import java.io.File;
@@ -15,7 +17,7 @@ import com.cagepa.pmg.sgu.Usuario;
 import com.cagepa.pmg.sgu.Hidrometro;
 
 public class SMC {
-    private List<SAN> observers = new ArrayList<>();
+    private List<IObservadorLeitura> observers = new ArrayList<>();
     private List<IProcessadorImagem> adaptadores = new ArrayList<>();
     private java.nio.file.WatchService watcher;
     private java.util.Map<java.nio.file.WatchKey, java.nio.file.Path> keys;
@@ -33,8 +35,8 @@ public class SMC {
         }
     }
 
-    public void addObserver(SAN san) {
-        observers.add(san);
+    public void addObserver(IObservadorLeitura observer) {
+        observers.add(observer);
     }
 
     public void adicionarAdaptador(IProcessadorImagem adaptador) {
@@ -325,8 +327,8 @@ public class SMC {
 
     private void notificarObservers(String idSHA, double valor) {
         Logger.getInstance().logInfo("SMC (Subject): Notificando observadores sobre nova leitura.");
-        for (SAN san : observers) {
-            san.verificarAnomalia(idSHA, valor);
+        for (IObservadorLeitura obs : observers) {
+            obs.atualizar(idSHA, valor);
         }
     }
 }

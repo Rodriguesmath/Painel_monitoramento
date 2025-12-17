@@ -1,12 +1,15 @@
 package com.cagepa.pmg.smc.adapter;
 
 import com.cagepa.pmg.infra.Logger;
+import com.cagepa.pmg.infra.MotorOCR;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
 public class AdaptadorAnalogicoModeloA implements IProcessadorImagem {
+
     private final List<File> diretoriosMonitorados;
+    private final MotorOCR motor = new MotorOCR(); // Composition (Adaptee)
 
     public AdaptadorAnalogicoModeloA() {
         this.diretoriosMonitorados = new ArrayList<>();
@@ -38,62 +41,38 @@ public class AdaptadorAnalogicoModeloA implements IProcessadorImagem {
     public double realizarOCR(File imagem) {
         // Try Tesseract first
         try {
-            // Try PSM 6 (Assume a single uniform block of text)
-            ProcessBuilder pb = new ProcessBuilder("tesseract", imagem.getAbsolutePath(), "stdout", "--psm", "6");
-            Process p = pb.start();
+            // Call Adaptee
+            String rawOutput = motor.processarImagem(imagem, "--psm", "6");
+            Logger.getInstance().logInfo("Adapter A: Tesseract Raw Output: '" + rawOutput + "'");
 
-            java.io.BufferedReader reader = new java.io.BufferedReader(
-                    new java.io.InputStreamReader(p.getInputStream()));
-            StringBuilder output = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                output.append(line);
-            }
+            // CLEANING STRATEGY:
+            // 1. Remove common noise separators that Tesseract inserts between digits
+            String cleaned = rawOutput.replaceAll("[/|\\\\.]", "");
+            // 2. Remove all non-digit characters
+            cleaned = cleaned.replaceAll("[^0-9]", "");
 
-            int exitCode = p.waitFor();
-            if (exitCode == 0) {
-                String rawOutput = output.toString().trim();
-                Logger.getInstance().logInfo("Adapter A: Tesseract Raw Output: '" + rawOutput + "'");
+            Logger.getInstance().logInfo("Adapter A: Limpeza: '" + rawOutput + "' -> '" + cleaned + "'");
 
-                // CLEANING STRATEGY:
-                // 1. Remove common noise separators that Tesseract inserts between digits
-                String cleaned = rawOutput.replaceAll("[/|\\\\.]", "");
-                // 2. Remove all non-digit characters
-                cleaned = cleaned.replaceAll("[^0-9]", "");
-
-                Logger.getInstance().logInfo("Adapter A: Limpeza: '" + rawOutput + "' -> '" + cleaned + "'");
-
-                // 3. Take the first 4 digits (Standard format: 0XXX)
-                if (cleaned.length() >= 4) {
-                    String numStr = cleaned.substring(0, 4);
-                    double valor = Double.parseDouble(numStr);
-                    Logger.getInstance().logInfo(
-                            "Adapter A: Tesseract OCR realizado em " + imagem.getName() + " -> Valor: " + valor);
-                    return valor;
-                } else if (cleaned.length() > 0) {
-                    // Fallback for short numbers (unlikely but possible)
-                    double valor = Double.parseDouble(cleaned);
-                    Logger.getInstance().logInfo(
-                            "Adapter A: Tesseract OCR (parcial) em " + imagem.getName() + " -> Valor: " + valor);
-                    return valor;
-                } else {
-                    Logger.getInstance()
-                            .logInfo("Adapter A: Tesseract retornou vazio (após limpeza) para " + imagem.getName());
-                }
-            } else {
-                java.io.BufferedReader errorReader = new java.io.BufferedReader(
-                        new java.io.InputStreamReader(p.getErrorStream()));
-                StringBuilder errorOutput = new StringBuilder();
-                String errorLine;
-                while ((errorLine = errorReader.readLine()) != null) {
-                    errorOutput.append(errorLine);
-                }
+            // 3. Take the first 4 digits (Standard format: 0XXX)
+            if (cleaned.length() >= 4) {
+                String numStr = cleaned.substring(0, 4);
+                double valor = Double.parseDouble(numStr);
                 Logger.getInstance().logInfo(
-                        "Adapter A: Tesseract falhou (exit code " + exitCode + "). Erro: " + errorOutput.toString());
+                        "Adapter A: Tesseract OCR realizado em " + imagem.getName() + " -> Valor: " + valor);
+                return valor;
+            } else if (cleaned.length() > 0) {
+                // Fallback for short numbers (unlikely but possible)
+                double valor = Double.parseDouble(cleaned);
+                Logger.getInstance().logInfo(
+                        "Adapter A: Tesseract OCR (parcial) em " + imagem.getName() + " -> Valor: " + valor);
+                return valor;
+            } else {
+                Logger.getInstance()
+                        .logInfo("Adapter A: Tesseract retornou vazio (após limpeza) para " + imagem.getName());
             }
         } catch (Exception e) {
             Logger.getInstance().logInfo("Adapter A: Tesseract erro de execução: " + e.getMessage());
-            e.printStackTrace();
+            // e.printStackTrace();
         }
 
         // If Tesseract fails, return 0.0 (No Fallback)

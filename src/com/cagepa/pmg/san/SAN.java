@@ -4,13 +4,19 @@ import com.cagepa.pmg.infra.Logger;
 import java.util.HashMap;
 import java.util.Map;
 
-public class SAN {
+public class SAN implements com.cagepa.pmg.smc.IObservadorLeitura {
     private Map<String, Double> regrasAlerta = new HashMap<>(); // ID -> Threshold
     private INotificador notificador;
 
     public SAN() {
         // Default strategy
         this.notificador = new NotificadorEmail();
+    }
+
+    // Implementation of Observer Interface
+    @Override
+    public void atualizar(String idSHA, double valor) {
+        verificarAnomalia(idSHA, valor);
     }
 
     public void configurarAlerta(String idUsuario, double limiteConsumo, String tipoNotificacao) {

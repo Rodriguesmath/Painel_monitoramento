@@ -1,6 +1,7 @@
 package com.cagepa.pmg.smc.adapter;
 
 import com.cagepa.pmg.infra.Logger;
+import com.cagepa.pmg.infra.MotorOCR;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
@@ -8,6 +9,7 @@ import java.util.List;
 public class AdaptadorAnalogicoModeloB implements IProcessadorImagem {
     private final java.util.Map<String, Long> lastProcessedTimes = new java.util.HashMap<>();
     private final List<File> diretoriosMonitorados;
+    private final MotorOCR motor = new MotorOCR(); // Composition (Adaptee)
 
     public AdaptadorAnalogicoModeloB() {
         this.diretoriosMonitorados = new ArrayList<>();
@@ -45,69 +47,43 @@ public class AdaptadorAnalogicoModeloB implements IProcessadorImagem {
 
             // Use PSM 7 (Treat the image as a single text line)
             // Configure whitelist to only allow digits
-            ProcessBuilder pb = new ProcessBuilder(
-                    "tesseract",
-                    tempImage.getAbsolutePath(),
-                    "stdout",
-                    "--psm", "6",
-                    "-c", "tessedit_char_whitelist=0123456789");
-            Process p = pb.start();
+            // Use Adaptee
+            // Note: tempImage is used.
+            String rawOutput = motor.processarImagem(tempImage, "--psm", "6", "-c",
+                    "tessedit_char_whitelist=0123456789");
+            Logger.getInstance().logInfo("Adapter B: Tesseract Raw Output: '" + rawOutput + "'");
 
-            java.io.BufferedReader reader = new java.io.BufferedReader(
-                    new java.io.InputStreamReader(p.getInputStream()));
-            StringBuilder output = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                output.append(line);
-            }
+            // CLEANING STRATEGY:
+            // 1. Remove common noise separators
+            String cleaned = rawOutput.replaceAll("[/|\\\\.]", "");
+            // 2. Remove all non-digit characters
+            cleaned = cleaned.replaceAll("[^0-9]", "");
 
-            int exitCode = p.waitFor();
-            if (exitCode == 0) {
-                String rawOutput = output.toString().trim();
-                Logger.getInstance().logInfo("Adapter B: Tesseract Raw Output: '" + rawOutput + "'");
+            Logger.getInstance().logInfo("Adapter B: Limpeza: '" + rawOutput + "' -> '" + cleaned + "'");
 
-                // CLEANING STRATEGY:
-                // 1. Remove common noise separators
-                String cleaned = rawOutput.replaceAll("[/|\\\\.]", "");
-                // 2. Remove all non-digit characters
-                cleaned = cleaned.replaceAll("[^0-9]", "");
+            if (cleaned.length() > 0) {
+                try {
+                    // Parse as integer first
+                    double rawValue = Double.parseDouble(cleaned);
+                    // MODEL B SPECIFIC: Last 2 digits are red (decimal places)
+                    // Example: "000170" -> 1.70
+                    double finalValue = rawValue / 100.0;
 
-                Logger.getInstance().logInfo("Adapter B: Limpeza: '" + rawOutput + "' -> '" + cleaned + "'");
+                    Logger.getInstance().logInfo(
+                            "Adapter B: Tesseract OCR realizado em " + imagem.getName() + " -> Valor Bruto: "
+                                    + finalValue);
 
-                if (cleaned.length() > 0) {
-                    try {
-                        // Parse as integer first
-                        double rawValue = Double.parseDouble(cleaned);
-                        // MODEL B SPECIFIC: Last 2 digits are red (decimal places)
-                        // Example: "000170" -> 1.70
-                        double finalValue = rawValue / 100.0;
+                    // Apply Smart Rounding (Inference)
+                    double roundedValue = aplicarArredondamentoInteligente(finalValue);
+                    Logger.getInstance().logInfo("Adapter B: Valor Arredondado: " + roundedValue);
 
-                        Logger.getInstance().logInfo(
-                                "Adapter B: Tesseract OCR realizado em " + imagem.getName() + " -> Valor Bruto: "
-                                        + finalValue);
-
-                        // Apply Smart Rounding (Inference)
-                        double roundedValue = aplicarArredondamentoInteligente(finalValue);
-                        Logger.getInstance().logInfo("Adapter B: Valor Arredondado: " + roundedValue);
-
-                        return roundedValue;
-                    } catch (NumberFormatException e) {
-                        Logger.getInstance().logError("Adapter B: Falha ao converter valor limpo: " + cleaned);
-                    }
-                } else {
-                    Logger.getInstance()
-                            .logInfo("Adapter B: Tesseract retornou vazio (após limpeza) para " + imagem.getName());
+                    return roundedValue;
+                } catch (NumberFormatException e) {
+                    Logger.getInstance().logError("Adapter B: Falha ao converter valor limpo: " + cleaned);
                 }
             } else {
-                java.io.BufferedReader errorReader = new java.io.BufferedReader(
-                        new java.io.InputStreamReader(p.getErrorStream()));
-                StringBuilder errorOutput = new StringBuilder();
-                String errorLine;
-                while ((errorLine = errorReader.readLine()) != null) {
-                    errorOutput.append(errorLine);
-                }
-                Logger.getInstance().logInfo(
-                        "Adapter B: Tesseract falhou (exit code " + exitCode + "). Erro: " + errorOutput.toString());
+                Logger.getInstance()
+                        .logInfo("Adapter B: Tesseract retornou vazio (após limpeza) para " + imagem.getName());
             }
         } catch (Exception e) {
             Logger.getInstance().logInfo("Adapter B: Tesseract erro de execução: " + e.getMessage());
