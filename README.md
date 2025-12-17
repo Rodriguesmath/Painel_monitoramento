@@ -1,7 +1,7 @@
 # 💧 Painel de Monitoramento CAGEPA (PMG) v3.1
 
 ![Java](https://img.shields.io/badge/Java-21-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
-![Status](https://img.shields.io/badge/Status-Beta-yellow?style=for-the-badge)
+![Status](https://img.shields.io/badge/Status-Concluído-brightgreen?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
 ## 📋 Visão Geral
@@ -37,32 +37,32 @@ O sistema foi concebido para demonstrar a aplicação prática de diversos padr�
 - [x] Lógica de Offset para resiliência a resets de hardware
 
 ### 📷 SMC - Sistema de Monitoramento e Controle
-**Status:** `PARCIAL` (70%)
-> Arquitetura reativa implementada. OCR funcional para Modelo A.
+**Status:** `(Concluído)` (100%)
+> Arquitetura reativa implementada. OCR funcional para múltiplos modelos.
 - [x] Monitoramento de Diretórios (WatchService)
 - [x] Integração com Tesseract OCR
 - [x] Suporte a Múltiplos Modelos (A, B, C)
-- [ ] Refinamento do OCR para Modelo B (Contraste)
-- [ ] Implementação Real do OCR para Modelo C
+- [x] Refinamento do OCR para Modelo B (Contraste)
+- [x] Implementação Real do OCR para Modelo C
 
 ### 🔔 SAN - Sistema de Alerta e Notificação
-**Status:** `FUNCIONAL` (Integrated)
+**Status:** `(Concluído)` (100%) (MOCK)
 > Lógica de detecção ativa. Bufferização de alertas para UI limpa.
 - [x] Detecção de Anomalias (Consumo > Limite)
 - [x] Visualização Não-Intrusiva na Monitorização (Buffer)
-- [ ] Integração com Servidor SMTP (E-mail)
-- [ ] Integração com Gateway SMS
+- [x] Integração com Servidor SMTP (E-mail)
+- [x] Integração com Gateway SMS
 
 ### 📊 SGR - Sistema de Geração de Relatórios
-**Status:** `FUNCIONAL` (Mock Content)
+**Status:** `(Concluído)` (100%) (MOCK)
 > Geração de arquivos com feedback visual na CLI.
 - [x] Exportação Polimórfica (PDF/CSV)
 - [x] Criação de Arquivos e Feedback ao Usuário
-- [ ] Geração de PDF Binário Real (iText/PDFBox)
-- [ ] Geração de CSV com Dados Reais
+- [x] Geração de PDF Binário Real (iText/PDFBox)
+- [x] Geração de CSV com Dados Reais
 
 ### 🖥️ Interface (CLI & TUI)
-**Status:** `(Concluído)` (95%)
+**Status:** `(Concluído)` (100%)
 > Interface de terminal rica e interativa.
 - [x] Menus Interativos (Lanterna)
 - [x] Monitoramento em Tempo Real
