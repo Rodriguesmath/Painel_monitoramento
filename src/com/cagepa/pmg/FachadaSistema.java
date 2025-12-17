@@ -55,12 +55,16 @@ public class FachadaSistema {
         return sgu.getTipoUsuario(id);
     }
 
-    public void cadastrarUsuario(String id, String nome, String senha, TipoUsuario tipo) {
-        sgu.cadastrarUsuario(id, nome, senha, tipo);
+    public boolean cadastrarUsuario(String id, String nome, String senha, TipoUsuario tipo) {
+        return sgu.cadastrarUsuario(id, nome, senha, tipo);
     }
 
-    public void adicionarHidrometro(String idUsuario, String idHidrometro, String modelo) {
-        sgu.adicionarHidrometro(idUsuario, idHidrometro, modelo);
+    public boolean adicionarHidrometro(String idUsuario, String idHidrometro, String modelo, double limiteAlerta) {
+        return sgu.adicionarHidrometro(idUsuario, idHidrometro, modelo, limiteAlerta);
+    }
+
+    public java.util.List<String> getAlertasRecentes() {
+        return san.getAlertasRecentes();
     }
 
     public java.util.List<com.cagepa.pmg.sgu.Usuario> listarUsuarios() {

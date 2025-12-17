@@ -398,13 +398,26 @@ public class PainelTUI {
         ComboBox<String> cbModelo = new ComboBox<>("A", "B");
         panel.addComponent(cbModelo);
 
+        panel.addComponent(new Label("Limite Alerta:"));
+        TextBox txtLimite = new TextBox("0.0");
+        panel.addComponent(txtLimite);
+
         panel.addComponent(new EmptySpace(new TerminalSize(0, 1)));
 
         Panel btnPanel = new Panel(new LinearLayout(Direction.HORIZONTAL));
         btnPanel.addComponent(new Button("Adicionar", () -> {
-            fachada.adicionarHidrometro(txtIdUser.getText(), txtIdHidro.getText(), cbModelo.getSelectedItem());
-            MessageDialog.showMessageDialog(gui, "Sucesso", "Hidrômetro adicionado!", MessageDialogButton.OK);
-            window.close();
+            try {
+                double limite = Double.parseDouble(txtLimite.getText());
+                if (fachada.adicionarHidrometro(txtIdUser.getText(), txtIdHidro.getText(), cbModelo.getSelectedItem(),
+                        limite)) {
+                    MessageDialog.showMessageDialog(gui, "Sucesso", "Hidrômetro adicionado!", MessageDialogButton.OK);
+                    window.close();
+                } else {
+                    MessageDialog.showMessageDialog(gui, "Erro", "Verifique os IDs!", MessageDialogButton.OK);
+                }
+            } catch (NumberFormatException e) {
+                MessageDialog.showMessageDialog(gui, "Erro", "Limite inválido!", MessageDialogButton.OK);
+            }
         }));
         btnPanel.addComponent(new Button("Cancelar", window::close));
 

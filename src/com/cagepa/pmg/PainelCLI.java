@@ -88,10 +88,31 @@ public class PainelCLI {
                                 System.out.println("Pressione ENTER para parar a visualização.");
 
                                 Thread displayThread = new Thread(() -> {
+                                    // Buffer for alerts in UI
+                                    List<String> activeAlerts = new java.util.ArrayList<>();
+
                                     while (!Thread.currentThread().isInterrupted()) {
                                         try {
                                             limparTela();
                                             System.out.println("=== Monitoramento em Tempo Real ===");
+
+                                            // Fetch and accumulate alerts
+                                            List<String> freshAlerts = fachada.getAlertasRecentes();
+                                            activeAlerts.addAll(freshAlerts);
+                                            // Keep only last 5
+                                            if (activeAlerts.size() > 5) {
+                                                activeAlerts = activeAlerts.subList(activeAlerts.size() - 5,
+                                                        activeAlerts.size());
+                                            }
+
+                                            if (!activeAlerts.isEmpty()) {
+                                                System.out.println("\n[ ALERTA DE CONSUMO ]");
+                                                for (String alert : activeAlerts) {
+                                                    System.out.println(" (!) " + alert);
+                                                }
+                                                System.out.println("------------------------------------------------");
+                                            }
+
                                             List<Usuario> users = fachada.listarUsuarios();
                                             for (Usuario u : users) {
                                                 if (u.getTipo() == TipoUsuario.ADMIN)
@@ -147,7 +168,10 @@ public class PainelCLI {
                                 System.out.print("ID Usuário: ");
                                 String idRel = scanner.nextLine();
                                 fachada.gerarRelatorio(tRel, idRel);
-                                fachada.logInfo("CLI: Relatório gerado para " + idRel);
+                                System.out.println("RELATORIO: " + tRel + " gerado com sucesso em ./"
+                                        + (tRel.equalsIgnoreCase("PDF") ? "relatorio_mock.pdf" : "relatorio.csv"));
+                                String msgRel = "Relatório gerado para " + idRel;
+                                fachada.logInfo("CLI: " + msgRel);
                                 break;
                             case "4":
                                 boolean subMenuGestao = true;
@@ -165,33 +189,76 @@ public class PainelCLI {
 
                                     switch (subOpcao) {
                                         case "1":
-                                            limparTela();
-                                            System.out.println("=== Cadastrar Usuário ===");
-                                            System.out.print("ID: ");
-                                            String nId = scanner.nextLine();
-                                            System.out.print("Nome: ");
-                                            String nNome = scanner.nextLine();
-                                            System.out.print("Senha: ");
-                                            String nSenha = scanner.nextLine();
-                                            System.out.print("Tipo (ADMIN/PADRAO): ");
-                                            String nTipoStr = scanner.nextLine();
-                                            TipoUsuario nTipo = "ADMIN".equalsIgnoreCase(nTipoStr) ? TipoUsuario.ADMIN
-                                                    : TipoUsuario.PADRAO;
-                                            fachada.cadastrarUsuario(nId, nNome, nSenha, nTipo);
-                                            fachada.logInfo("CLI: Novo usuário cadastrado: " + nId);
-                                            esperarEnter(scanner);
+                                            // Loop for Registration
+                                            while (true) {
+                                                limparTela();
+                                                System.out.println("=== Cadastrar Usuário ===");
+                                                System.out.print("ID: ");
+                                                String nId = scanner.nextLine();
+                                                if (nId.isEmpty())
+                                                    break; // Cancel on empty ID
+
+                                                System.out.print("Nome: ");
+                                                String nNome = scanner.nextLine();
+                                                System.out.print("Senha: ");
+                                                String nSenha = scanner.nextLine();
+                                                System.out.print("Tipo (ADMIN/PADRAO): ");
+                                                String nTipoStr = scanner.nextLine();
+                                                TipoUsuario nTipo = "ADMIN".equalsIgnoreCase(nTipoStr)
+                                                        ? TipoUsuario.ADMIN
+                                                        : TipoUsuario.PADRAO;
+
+                                                if (fachada.cadastrarUsuario(nId, nNome, nSenha, nTipo)) {
+                                                    fachada.logInfo("CLI: Novo usuário cadastrado: " + nId);
+                                                    System.out.println("Usuário cadastrado com sucesso!");
+                                                    esperarEnter(scanner);
+                                                    break;
+                                                } else {
+                                                    System.out.println(
+                                                            "Erro: Usuário já existe ou dados inválidos. Tente Novamente.");
+                                                    System.out.println(
+                                                            "(Pressione ENTER para tentar novamente ou deixe ID vazio para cancelar)");
+                                                    scanner.nextLine();
+                                                }
+                                            }
                                             break;
                                         case "2":
-                                            limparTela();
-                                            System.out.println("=== Cadastrar Hidrômetro ===");
-                                            System.out.print("ID do Usuário: ");
-                                            String idUserH = scanner.nextLine();
-                                            System.out.print("ID do Hidrômetro (SHA): ");
-                                            String idHidro = scanner.nextLine();
-                                            System.out.print("Modelo (A/B): ");
-                                            String modH = scanner.nextLine();
-                                            fachada.adicionarHidrometro(idUserH, idHidro, modH);
-                                            esperarEnter(scanner);
+                                            // Loop for Hydrometer
+                                            while (true) {
+                                                limparTela();
+                                                System.out.println("=== Cadastrar Hidrômetro ===");
+                                                System.out.print("ID do Usuário: ");
+                                                String idUserH = scanner.nextLine();
+                                                if (idUserH.isEmpty())
+                                                    break; // Cancel
+
+                                                System.out.print("ID do Hidrômetro (SHA): ");
+                                                String idHidro = scanner.nextLine();
+                                                System.out.print("Modelo (A/B): ");
+                                                String modH = scanner.nextLine();
+
+                                                System.out.print("Limite de Alerta (0 para desativar): ");
+                                                double limiteH = 0.0;
+                                                try {
+                                                    String lInput = scanner.nextLine();
+                                                    if (!lInput.isEmpty())
+                                                        limiteH = Double.parseDouble(lInput);
+                                                } catch (NumberFormatException e) {
+                                                    System.out.println("Valor inválido. Usando 0.0.");
+                                                }
+
+                                                if (fachada.adicionarHidrometro(idUserH, idHidro, modH, limiteH)) {
+                                                    System.out.println("Hidrômetro vinculado com sucesso!");
+                                                    esperarEnter(scanner);
+                                                    break;
+                                                } else {
+                                                    System.out.println(
+                                                            "Erro: Usuário não existe ou Hidrômetro já vinculado. Tente Novamente.");
+                                                    System.out.println(
+                                                            "(Pressione ENTER para tentar novamente ou deixe ID do Usuário vazio para cancelar)");
+                                                    scanner.nextLine();
+                                                }
+                                            }
                                             break;
                                         case "3":
                                             limparTela();

@@ -29,8 +29,9 @@ O sistema foi concebido para demonstrar a aplicação prática de diversos padr�
 
 ### 👤 SGU - Sistema de Gerenciamento de Usuários
 **Status:** `(Concluído)` (100%)
-> Gerenciamento completo com persistência em SQLite.
+> Gerenciamento completo com persistência em SQLite e validação robusta.
 - [x] CRUD de Usuários e Hidrômetros
+- [x] Validação de Duplicidade e Fluxo de "Tente Novamente"
 - [x] Persistência Relacional (SQLite)
 - [x] Autenticação e Controle de Acesso (RBAC)
 - [x] Lógica de Offset para resiliência a resets de hardware
@@ -45,18 +46,18 @@ O sistema foi concebido para demonstrar a aplicação prática de diversos padr�
 - [ ] Implementação Real do OCR para Modelo C
 
 ### 🔔 SAN - Sistema de Alerta e Notificação
-**Status:** `MOCK` (Funcional)
-> Lógica de detecção ativa. Envio simulado com feedback visual.
+**Status:** `FUNCIONAL` (Integrated)
+> Lógica de detecção ativa. Bufferização de alertas para UI limpa.
 - [x] Detecção de Anomalias (Consumo > Limite)
-- [x] Feedback Visual no Console (Mock)
+- [x] Visualização Não-Intrusiva na Monitorização (Buffer)
 - [ ] Integração com Servidor SMTP (E-mail)
 - [ ] Integração com Gateway SMS
 
 ### 📊 SGR - Sistema de Geração de Relatórios
-**Status:** `MOCK` (Funcional)
-> Estrutura pronta. Geração de arquivos fictícios para validação de fluxo.
+**Status:** `FUNCIONAL` (Mock Content)
+> Geração de arquivos com feedback visual na CLI.
 - [x] Exportação Polimórfica (PDF/CSV)
-- [x] Criação de Arquivos Físicos (Mock Content)
+- [x] Criação de Arquivos e Feedback ao Usuário
 - [ ] Geração de PDF Binário Real (iText/PDFBox)
 - [ ] Geração de CSV com Dados Reais
 

@@ -29,7 +29,17 @@ public class SAN {
         this.sgu = sgu;
     }
 
-    // Observer method called by SMC
+    private java.util.List<String> bufferAlertas = new java.util.ArrayList<>();
+
+    public java.util.List<String> getAlertasRecentes() {
+        // Return a copy and clear? Or just return the last N?
+        // Let's return a copy of the current buffer and clear it, acting as a queue
+        // consumption.
+        java.util.List<String> copy = new java.util.ArrayList<>(bufferAlertas);
+        bufferAlertas.clear();
+        return copy;
+    }
+
     public void verificarAnomalia(String idSHA, double leituraAtual) {
         String idUsuario = null;
 
@@ -38,23 +48,24 @@ public class SAN {
             com.cagepa.pmg.sgu.Usuario usuario = sgu.getUsuarioPorHidrometro(idSHA);
             if (usuario != null) {
                 idUsuario = usuario.getId();
-            }
-        }
-
-        // Fallback: if no user found, maybe the alert is on the SHA itself (legacy
-        // behavior) or we skip
-        if (idUsuario == null) {
-            Logger.getInstance().logInfo("SAN: Não foi possível identificar o usuário para o SHA " + idSHA);
-            return;
-        }
-
-        if (regrasAlerta.containsKey(idUsuario)) {
-            double limite = regrasAlerta.get(idUsuario);
-            if (leituraAtual > limite) {
-                String msg = "ALERTA: Consumo " + leituraAtual + " excedeu o limite de " + limite + " para o usuário "
-                        + idUsuario + " (SHA: " + idSHA + ")";
-                Logger.getInstance().logInfo("SAN: Anomalia detectada. Disparando notificação.");
-                notificador.enviar(msg);
+                // Find specific hydrometer to get its limit
+                for (com.cagepa.pmg.sgu.Hidrometro h : usuario.getHidrometros()) {
+                    if (h.getId().equals(idSHA)) {
+                        double limite = h.getLimiteAlerta();
+                        if (limite > 0 && leituraAtual > limite) {
+                            String msg = "ALERTA: Consumo " + String.format("%.2f", leituraAtual) + " > " + limite
+                                    + " (User: "
+                                    + idUsuario + ", Hidro: " + idSHA + ")";
+                            Logger.getInstance()
+                                    .logInfo("SAN: Anomalia detectada. Disparando notificação e bufferizando.");
+                            bufferAlertas.add(msg);
+                            if (notificador != null) {
+                                notificador.enviar(msg);
+                            }
+                        }
+                        break;
+                    }
+                }
             }
         }
     }

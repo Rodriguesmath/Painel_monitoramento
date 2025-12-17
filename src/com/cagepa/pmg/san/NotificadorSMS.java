@@ -7,6 +7,7 @@ public class NotificadorSMS implements INotificador {
     public void enviar(String mensagem) {
         String logMsg = "SMS enviado: " + mensagem;
         Logger.getInstance().logInfo(logMsg);
-        System.out.println(">> [MOCK SMS] " + mensagem);
+        // System.out.println(">> [MOCK SMS] " + mensagem); // Removed to avoid
+        // interfering with CLI/TUI
     }
 }

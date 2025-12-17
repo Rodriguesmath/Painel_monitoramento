@@ -28,7 +28,12 @@ public class SGU {
         }
     }
 
-    public void cadastrarUsuario(String id, String nome, String senha, TipoUsuario tipo) {
+    public boolean cadastrarUsuario(String id, String nome, String senha, TipoUsuario tipo) {
+        if (getUsuarioPorId(id) != null) {
+            Logger.getInstance().logInfo("SGU: Tentativa de cadastro falhou. Usuário já existe: " + id);
+            return false;
+        }
+
         String sql = "INSERT INTO usuarios(id, nome, senha, tipo) VALUES(?, ?, ?, ?)";
         try (Connection conn = ConexaoDB.conectar();
                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -38,23 +43,42 @@ public class SGU {
             pstmt.setString(4, tipo.name());
             pstmt.executeUpdate();
             Logger.getInstance().logInfo("SGU: Usuário cadastrado com sucesso: " + nome + " (" + id + ")");
+            return true;
         } catch (SQLException e) {
             Logger.getInstance().logError("SGU: Erro ao cadastrar usuário: " + e.getMessage());
+            return false;
         }
     }
 
-    public void adicionarHidrometro(String idUsuario, String idHidrometro, String modelo) {
-        String sql = "INSERT INTO hidrometros(id, id_usuario, modelo, consumo_atual, offset) VALUES(?, ?, ?, 0.0, 0.0)";
+    public boolean adicionarHidrometro(String idUsuario, String idHidrometro, String modelo, double limiteAlerta) {
+        // Validation: User must exist
+        if (getUsuarioPorId(idUsuario) == null) {
+            Logger.getInstance()
+                    .logInfo("SGU: Tentativa de adicionar hidrômetro falhou. Usuário desconhecido: " + idUsuario);
+            return false;
+        }
+
+        if (getUsuarioPorHidrometro(idHidrometro) != null) {
+            Logger.getInstance()
+                    .logInfo("SGU: Tentativa de adicionar hidrômetro falhou. ID já em uso: " + idHidrometro);
+            return false;
+        }
+
+        String sql = "INSERT INTO hidrometros(id, id_usuario, modelo, consumo_atual, offset, limite_alerta) VALUES(?, ?, ?, 0.0, 0.0, ?)";
         try (Connection conn = ConexaoDB.conectar();
                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, idHidrometro);
             pstmt.setString(2, idUsuario);
             pstmt.setString(3, modelo);
+            pstmt.setDouble(4, limiteAlerta);
             pstmt.executeUpdate();
             Logger.getInstance().logInfo(
-                    "SGU: Hidrômetro " + idHidrometro + " (" + modelo + ") adicionado ao usuário " + idUsuario);
+                    "SGU: Hidrômetro " + idHidrometro + " (" + modelo + ") adicionado ao usuário " + idUsuario
+                            + " com limite de alerta: " + limiteAlerta);
+            return true;
         } catch (SQLException e) {
             Logger.getInstance().logError("SGU: Erro ao adicionar hidrômetro: " + e.getMessage());
+            return false;
         }
     }
 
@@ -130,7 +154,7 @@ public class SGU {
     }
 
     private void carregarHidrometros(Usuario usuario) {
-        String sql = "SELECT id, modelo, consumo_atual, offset FROM hidrometros WHERE id_usuario = ?";
+        String sql = "SELECT id, modelo, consumo_atual, offset, limite_alerta FROM hidrometros WHERE id_usuario = ?";
         try (Connection conn = ConexaoDB.conectar();
                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, usuario.getId());
@@ -141,7 +165,8 @@ public class SGU {
                         usuario.getId(),
                         rs.getString("modelo"),
                         rs.getDouble("consumo_atual"),
-                        rs.getDouble("offset")));
+                        rs.getDouble("offset"),
+                        rs.getDouble("limite_alerta")));
             }
         } catch (SQLException e) {
             Logger.getInstance().logError(

@@ -38,6 +38,7 @@ public class ConexaoDB {
                 "modelo TEXT NOT NULL," +
                 "consumo_atual REAL DEFAULT 0.0," +
                 "offset REAL DEFAULT 0.0," +
+                "limite_alerta REAL DEFAULT 0.0," +
                 "FOREIGN KEY(id_usuario) REFERENCES usuarios(id)" +
                 ");";
 
