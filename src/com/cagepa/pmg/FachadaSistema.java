@@ -59,8 +59,13 @@ public class FachadaSistema {
         return sgu.cadastrarUsuario(id, nome, senha, tipo);
     }
 
-    public boolean adicionarHidrometro(String idUsuario, String idHidrometro, String modelo, double limiteAlerta) {
-        return sgu.adicionarHidrometro(idUsuario, idHidrometro, modelo, limiteAlerta);
+    public com.cagepa.pmg.sgu.Usuario getUsuarioPorId(String id) {
+        return sgu.getUsuarioPorId(id);
+    }
+
+    public boolean adicionarHidrometro(String idUsuario, String idHidrometro, String modelo, double limiteAlerta,
+            String tipoAlerta) {
+        return sgu.adicionarHidrometro(idUsuario, idHidrometro, modelo, limiteAlerta, tipoAlerta);
     }
 
     public java.util.List<String> getAlertasRecentes() {
@@ -105,7 +110,8 @@ public class FachadaSistema {
     }
 
     public void configurarAlerta(String idUsuario, double limiteConsumo, String tipoNotificacao) {
-        san.configurarAlerta(idUsuario, limiteConsumo);
+        // Forward type to SAN for persistence
+        san.configurarAlerta(idUsuario, limiteConsumo, tipoNotificacao);
 
         INotificador estrategia;
         if ("SMS".equalsIgnoreCase(tipoNotificacao)) {

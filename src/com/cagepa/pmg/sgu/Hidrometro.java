@@ -7,15 +7,17 @@ public class Hidrometro {
     private double consumoAtual;
     private double offset;
     private double limiteAlerta;
+    private String tipoAlerta;
 
     public Hidrometro(String id, String idUsuario, String modelo, double consumoAtual, double offset,
-            double limiteAlerta) {
+            double limiteAlerta, String tipoAlerta) {
         this.id = id;
         this.idUsuario = idUsuario;
         this.modelo = modelo;
         this.consumoAtual = consumoAtual;
         this.offset = offset;
         this.limiteAlerta = limiteAlerta;
+        this.tipoAlerta = tipoAlerta;
     }
 
     public String getId() {
@@ -42,6 +44,10 @@ public class Hidrometro {
         return limiteAlerta;
     }
 
+    public String getTipoAlerta() {
+        return tipoAlerta;
+    }
+
     public double getConsumoTotal() {
         return consumoAtual; // Offset removed as per request
     }
@@ -58,9 +64,13 @@ public class Hidrometro {
         this.limiteAlerta = limiteAlerta;
     }
 
+    public void setTipoAlerta(String tipoAlerta) {
+        this.tipoAlerta = tipoAlerta;
+    }
+
     @Override
     public String toString() {
         return "Hidrometro{id='" + id + "', modelo='" + modelo + "', consumoTotal=" + getConsumoTotal() + ", limite="
-                + limiteAlerta + "}";
+                + limiteAlerta + ", tipo=" + tipoAlerta + "}";
     }
 }

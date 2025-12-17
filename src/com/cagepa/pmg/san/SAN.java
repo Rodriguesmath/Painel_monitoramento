@@ -13,10 +13,25 @@ public class SAN {
         this.notificador = new NotificadorEmail();
     }
 
-    public void configurarAlerta(String idUsuario, double limiteConsumo) {
+    public void configurarAlerta(String idUsuario, double limiteConsumo, String tipoNotificacao) {
+        // Delegate to SGU for persistence
+        if (sgu != null) {
+            String tipo = (tipoNotificacao != null && !tipoNotificacao.isEmpty()) ? tipoNotificacao : "EMAIL";
+            sgu.atualizarConfiguracaoAlerta(idUsuario, limiteConsumo, tipo);
+        } else {
+            Logger.getInstance().logError("SAN: SGU não inicializado. Não foi possível configurar alerta.");
+        }
+
         regrasAlerta.put(idUsuario, limiteConsumo);
         Logger.getInstance()
-                .logInfo("SAN: Alerta configurado para usuário " + idUsuario + " com limite " + limiteConsumo);
+                .logInfo("SAN: Alerta configurado para usuário " + idUsuario + " com limite " + limiteConsumo + " via "
+                        + tipoNotificacao);
+    }
+
+    // Legacy method overload for backward compatibility if needed, though we should
+    // update callers
+    public void configurarAlerta(String idUsuario, double limiteConsumo) {
+        configurarAlerta(idUsuario, limiteConsumo, "EMAIL");
     }
 
     public void setEstrategiaNotificacao(INotificador notificador) {
@@ -53,9 +68,16 @@ public class SAN {
                     if (h.getId().equals(idSHA)) {
                         double limite = h.getLimiteAlerta();
                         if (limite > 0 && leituraAtual > limite) {
+                            String tipo = h.getTipoAlerta();
+                            if ("SMS".equalsIgnoreCase(tipo)) {
+                                this.notificador = new NotificadorSMS(); // Use cached instances if perf issues arise
+                            } else {
+                                this.notificador = new NotificadorEmail();
+                            }
+
                             String msg = "ALERTA: Consumo " + String.format("%.2f", leituraAtual) + " > " + limite
                                     + " (User: "
-                                    + idUsuario + ", Hidro: " + idSHA + ")";
+                                    + idUsuario + ", Hidro: " + idSHA + ", Via: " + tipo + ")";
                             Logger.getInstance()
                                     .logInfo("SAN: Anomalia detectada. Disparando notificação e bufferizando.");
                             bufferAlertas.add(msg);

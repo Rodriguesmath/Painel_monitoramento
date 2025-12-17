@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class AdaptadorAnalogicoModeloA implements IProcessadorImagem {
-    private final java.util.Map<String, Long> lastProcessedTimes = new java.util.HashMap<>();
     private final List<File> diretoriosMonitorados;
 
     public AdaptadorAnalogicoModeloA() {
@@ -102,45 +101,16 @@ public class AdaptadorAnalogicoModeloA implements IProcessadorImagem {
         return 0.0;
     }
 
+    private java.util.Map<String, Long> ultimaAtividadeMap = new java.util.HashMap<>();
+
     @Override
     public String verificarStatus(String idSHA) {
-        for (File diretorio : diretoriosMonitorados) {
-            if (!diretorio.exists())
-                continue;
-            File[] arquivos = diretorio.listFiles();
-            if (arquivos == null)
-                continue;
-
-            for (File arquivo : arquivos) {
-                if (arquivo.isDirectory()) {
-                    String nomeDir = arquivo.getName();
-                    // Check if directory matches user ID (e.g., Medicoes_1999..._teste_img or just
-                    // ID)
-                    if (nomeDir.contains(idSHA)) {
-                        File[] imagens = arquivo.listFiles((dir, name) -> name.toLowerCase().endsWith(".jpg") ||
-                                name.toLowerCase().endsWith(".jpeg") ||
-                                name.toLowerCase().endsWith(".png"));
-
-                        if (imagens != null && imagens.length > 0) {
-                            File maisRecente = imagens[0];
-                            long maxTime = maisRecente.lastModified();
-
-                            for (int i = 1; i < imagens.length; i++) {
-                                long time = imagens[i].lastModified();
-                                if (time > maxTime) {
-                                    maxTime = time;
-                                    maisRecente = imagens[i];
-                                }
-                            }
-
-                            long diff = System.currentTimeMillis() - maxTime;
-                            // If image is younger than 5 seconds, it's running
-                            if (diff < 5000) {
-                                return "EM EXECUÇÃO";
-                            }
-                        }
-                    }
-                }
+        // Use cached activity timestamp per ID
+        Long lastTime = ultimaAtividadeMap.get(idSHA);
+        if (lastTime != null) {
+            long diff = System.currentTimeMillis() - lastTime;
+            if (diff < 5000) { // Keep 5 seconds as requested
+                return "EM EXECUÇÃO";
             }
         }
         return "PARADO";
@@ -188,7 +158,6 @@ public class AdaptadorAnalogicoModeloA implements IProcessadorImagem {
                         // BINDING CHECK: Verify if this SHA is registered as Model A
                         com.cagepa.pmg.sgu.Usuario u = sgu.getUsuarioPorHidrometro(idSHA);
                         if (u == null) {
-                            // System.out.println("DEBUG: Usuario nao encontrado para SHA: " + idSHA);
                             continue;
                         }
 
@@ -201,7 +170,6 @@ public class AdaptadorAnalogicoModeloA implements IProcessadorImagem {
                         }
 
                         if (!isModelA) {
-                            // System.out.println("DEBUG: SHA " + idSHA + " nao e Modelo A");
                             continue;
                         }
 
@@ -225,17 +193,13 @@ public class AdaptadorAnalogicoModeloA implements IProcessadorImagem {
                             // STRICT CHECK: Only process if image is recent (< 5 seconds)
                             long diff = System.currentTimeMillis() - maxTime;
                             if (diff < 5000) {
-                                // DEDUPLICATION: Check if this file timestamp was already processed
-                                long lastProcessed = lastProcessedTimes.getOrDefault(idSHA, 0L);
-                                if (maxTime > lastProcessed) {
-                                    Logger.getInstance().logInfo("Adapter A: Imagem recente encontrada: "
-                                            + maisRecente.getName() + " para " + idSHA);
-                                    leituras.add(new LeituraDados(idSHA, maisRecente));
-                                    lastProcessedTimes.put(idSHA, maxTime);
-                                }
+                                Logger.getInstance().logInfo("Adapter A: Imagem recente encontrada: "
+                                        + maisRecente.getName() + " para " + idSHA);
+                                leituras.add(new LeituraDados(idSHA, maisRecente));
+
+                                // UPDATE ACTIVITY TIMESTAMP PER ID
+                                this.ultimaAtividadeMap.put(idSHA, System.currentTimeMillis());
                             }
-                        } else {
-                            // System.out.println("DEBUG: Nenhuma imagem encontrada em " + nomeDir);
                         }
                     }
                 }

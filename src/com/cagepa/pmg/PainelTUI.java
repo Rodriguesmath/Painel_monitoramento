@@ -192,9 +192,10 @@ public class PainelTUI {
         mainPanel.addComponent(new EmptySpace(new TerminalSize(0, 1)));
 
         Panel menuPanel = new Panel(new LinearLayout(Direction.VERTICAL));
-        menuPanel.addComponent(new Button("1. Configurar Alerta Pessoal", () -> showConfigurarAlerta(usuarioId)));
-        menuPanel.addComponent(new Button("2. Gerar Relatório Pessoal", () -> showGerarRelatorio(usuarioId)));
-        menuPanel.addComponent(new Button("3. Alterar Minha Senha", () -> showAtualizarSenha(usuarioId)));
+        menuPanel.addComponent(new Button("1. Monitorar Meu Consumo", () -> showUserMonitoring(usuarioId)));
+        menuPanel.addComponent(new Button("2. Configurar Alerta Pessoal", () -> showConfigurarAlerta(usuarioId)));
+        menuPanel.addComponent(new Button("3. Gerar Relatório Pessoal", () -> showGerarRelatorio(usuarioId)));
+        menuPanel.addComponent(new Button("4. Alterar Minha Senha", () -> showAtualizarSenha(usuarioId)));
 
         mainPanel.addComponent(menuPanel.withBorder(Borders.singleLine("Minhas Ações")));
 
@@ -402,6 +403,10 @@ public class PainelTUI {
         TextBox txtLimite = new TextBox("0.0");
         panel.addComponent(txtLimite);
 
+        panel.addComponent(new Label("Tipo Alerta:"));
+        ComboBox<String> cbTipoAlerta = new ComboBox<>("EMAIL", "SMS");
+        panel.addComponent(cbTipoAlerta);
+
         panel.addComponent(new EmptySpace(new TerminalSize(0, 1)));
 
         Panel btnPanel = new Panel(new LinearLayout(Direction.HORIZONTAL));
@@ -409,7 +414,7 @@ public class PainelTUI {
             try {
                 double limite = Double.parseDouble(txtLimite.getText());
                 if (fachada.adicionarHidrometro(txtIdUser.getText(), txtIdHidro.getText(), cbModelo.getSelectedItem(),
-                        limite)) {
+                        limite, cbTipoAlerta.getSelectedItem())) {
                     MessageDialog.showMessageDialog(gui, "Sucesso", "Hidrômetro adicionado!", MessageDialogButton.OK);
                     window.close();
                 } else {
@@ -546,5 +551,62 @@ public class PainelTUI {
 
         window.setComponent(panel.withBorder(Borders.doubleLine()));
         gui.addWindowAndWait(window);
+    }
+
+    private static void showUserMonitoring(String userId) {
+        fachada.iniciarMonitoramento();
+        BasicWindow window = new BasicWindow("Monitoramento Pessoal");
+        window.setHints(Arrays.asList(Window.Hint.CENTERED, Window.Hint.EXPANDED));
+
+        Panel panel = new Panel(new LinearLayout(Direction.VERTICAL));
+        panel.addComponent(new Label("Meus Hidrômetros").setForegroundColor(TextColor.ANSI.YELLOW));
+        panel.addComponent(new EmptySpace(new TerminalSize(0, 1)));
+
+        Label statusLabel = new Label("Carregando dados...");
+        panel.addComponent(statusLabel);
+
+        panel.addComponent(new EmptySpace(new TerminalSize(0, 1)));
+        panel.addComponent(new Button("Voltar", window::close));
+
+        window.setComponent(panel.withBorder(Borders.doubleLine()));
+
+        Thread updateThread = new Thread(() -> {
+            while (window.getTextGUI() != null) {
+                try {
+                    Thread.sleep(1000);
+                    StringBuilder sb = new StringBuilder();
+
+                    Usuario u = fachada.getUsuarioPorId(userId);
+                    if (u != null) {
+                        List<Hidrometro> hidros = u.getHidrometros();
+                        if (hidros.isEmpty()) {
+                            sb.append("Nenhum hidrômetro vinculado.");
+                        } else {
+                            for (Hidrometro h : hidros) {
+                                String status = fachada.getStatusHidrometro(h.getId());
+                                sb.append(String.format(
+                                        "ID: %-10s | Modelo: %-2s | Status: %-12s | Consumo: %.2f | Via: %s\n",
+                                        h.getId(), h.getModelo(), status, h.getConsumoTotal(), h.getTipoAlerta()));
+                            }
+                        }
+                    } else {
+                        sb.append("Erro ao carregar usuário.");
+                    }
+
+                    String finalStatus = sb.toString();
+                    try {
+                        window.getTextGUI().getGUIThread().invokeLater(() -> statusLabel.setText(finalStatus));
+                    } catch (Exception e) {
+                        break;
+                    }
+                } catch (InterruptedException e) {
+                    break;
+                }
+            }
+        });
+        updateThread.start();
+
+        gui.addWindowAndWait(window);
+        updateThread.interrupt();
     }
 }

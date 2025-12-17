@@ -50,7 +50,8 @@ public class SGU {
         }
     }
 
-    public boolean adicionarHidrometro(String idUsuario, String idHidrometro, String modelo, double limiteAlerta) {
+    public boolean adicionarHidrometro(String idUsuario, String idHidrometro, String modelo, double limiteAlerta,
+            String tipoAlerta) {
         // Validation: User must exist
         if (getUsuarioPorId(idUsuario) == null) {
             Logger.getInstance()
@@ -64,17 +65,18 @@ public class SGU {
             return false;
         }
 
-        String sql = "INSERT INTO hidrometros(id, id_usuario, modelo, consumo_atual, offset, limite_alerta) VALUES(?, ?, ?, 0.0, 0.0, ?)";
+        String sql = "INSERT INTO hidrometros(id, id_usuario, modelo, consumo_atual, offset, limite_alerta, tipo_alerta) VALUES(?, ?, ?, 0.0, 0.0, ?, ?)";
         try (Connection conn = ConexaoDB.conectar();
                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, idHidrometro);
             pstmt.setString(2, idUsuario);
             pstmt.setString(3, modelo);
             pstmt.setDouble(4, limiteAlerta);
+            pstmt.setString(5, tipoAlerta);
             pstmt.executeUpdate();
             Logger.getInstance().logInfo(
                     "SGU: Hidrômetro " + idHidrometro + " (" + modelo + ") adicionado ao usuário " + idUsuario
-                            + " com limite de alerta: " + limiteAlerta);
+                            + " com limite: " + limiteAlerta + " e tipo: " + tipoAlerta);
             return true;
         } catch (SQLException e) {
             Logger.getInstance().logError("SGU: Erro ao adicionar hidrômetro: " + e.getMessage());
@@ -154,7 +156,7 @@ public class SGU {
     }
 
     private void carregarHidrometros(Usuario usuario) {
-        String sql = "SELECT id, modelo, consumo_atual, offset, limite_alerta FROM hidrometros WHERE id_usuario = ?";
+        String sql = "SELECT id, modelo, consumo_atual, offset, limite_alerta, tipo_alerta FROM hidrometros WHERE id_usuario = ?";
         try (Connection conn = ConexaoDB.conectar();
                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, usuario.getId());
@@ -166,7 +168,8 @@ public class SGU {
                         rs.getString("modelo"),
                         rs.getDouble("consumo_atual"),
                         rs.getDouble("offset"),
-                        rs.getDouble("limite_alerta")));
+                        rs.getDouble("limite_alerta"),
+                        rs.getString("tipo_alerta")));
             }
         } catch (SQLException e) {
             Logger.getInstance().logError(
@@ -282,5 +285,24 @@ public class SGU {
             Logger.getInstance().logError("SGU: Erro ao buscar usuário por hidrômetro: " + e.getMessage());
         }
         return null;
+    }
+
+    public void atualizarConfiguracaoAlerta(String idUsuario, double limite, String tipo) {
+        String sql = "UPDATE hidrometros SET limite_alerta = ?, tipo_alerta = ? WHERE id_usuario = ?";
+        try (Connection conn = ConexaoDB.conectar();
+                PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setDouble(1, limite);
+            pstmt.setString(2, tipo);
+            pstmt.setString(3, idUsuario);
+            int rows = pstmt.executeUpdate();
+            if (rows > 0) {
+                Logger.getInstance().logInfo(
+                        "SGU: Alerta atualizado para " + limite + " / " + tipo + " (Usuário: " + idUsuario + ")");
+            } else {
+                Logger.getInstance().logInfo("SGU: Nenhum hidrômetro encontrado para o usuário: " + idUsuario);
+            }
+        } catch (SQLException e) {
+            Logger.getInstance().logError("SGU: Erro ao atualizar alerta: " + e.getMessage());
+        }
     }
 }

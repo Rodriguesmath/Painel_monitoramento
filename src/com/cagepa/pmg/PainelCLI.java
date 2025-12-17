@@ -8,6 +8,13 @@ import java.util.List;
 
 public class PainelCLI {
 
+    // ANSI Code Constants
+    private static final String ANSI_RESET = "\u001B[0m";
+    private static final String ANSI_RED_BG = "\u001B[41m";
+    private static final String ANSI_WHITE_BOLD = "\u001B[1;97m";
+    private static final String ANSI_BLINK = "\u001B[5m";
+    private static final String BEEP = "\u0007";
+
     public static void main(String[] args) {
         FachadaSistema fachada = new FachadaSistema();
         Scanner scanner = new Scanner(System.in);
@@ -20,7 +27,7 @@ public class PainelCLI {
         while (executando) {
             if (!logado) {
                 limparTela();
-                System.out.println("=== Painel de Monitoramento CAGEPA (PMG) v3.1 ===");
+                System.out.println("=== Painel de Monitoramento CAGEPA (PMG) v3.2 ===");
                 System.out.println("NOTA: Os logs de execução estão sendo gravados em 'system.log'.");
                 System.out.println(
                         "DICA: Abra outro terminal e execute 'tail -f system.log' para acompanhar os eventos.\n");
@@ -68,9 +75,10 @@ public class PainelCLI {
                         System.out.println("0. Logout");
                     } else {
                         System.out.println("=== Menu Principal (PADRAO) ===");
-                        System.out.println("1. Configurar Alerta Pessoal");
-                        System.out.println("2. Gerar Relatório Pessoal");
-                        System.out.println("3. Alterar Minha Senha");
+                        System.out.println("1. Monitorar Meu Consumo");
+                        System.out.println("2. Configurar Alerta Pessoal");
+                        System.out.println("3. Gerar Relatório Pessoal");
+                        System.out.println("4. Alterar Minha Senha");
                         System.out.println("0. Logout");
                     }
                     System.out.print("\nEscolha uma opção: ");
@@ -96,7 +104,7 @@ public class PainelCLI {
                                             limparTela();
                                             System.out.println("=== Monitoramento em Tempo Real ===");
 
-                                            // Fetch and accumulate alerts
+                                            // 1. Fetch Event-based Alerts (History)
                                             List<String> freshAlerts = fachada.getAlertasRecentes();
                                             activeAlerts.addAll(freshAlerts);
                                             // Keep only last 5
@@ -105,15 +113,45 @@ public class PainelCLI {
                                                         activeAlerts.size());
                                             }
 
-                                            if (!activeAlerts.isEmpty()) {
-                                                System.out.println("\n[ ALERTA DE CONSUMO ]");
-                                                for (String alert : activeAlerts) {
-                                                    System.out.println(" (!) " + alert);
-                                                }
-                                                System.out.println("------------------------------------------------");
-                                            }
+                                            // 2. Prepare Display List
+                                            List<String> alertsToDisplay = new java.util.ArrayList<>();
 
                                             List<Usuario> users = fachada.listarUsuarios();
+
+                                            // Check State for Persistent Alerts
+                                            for (Usuario u : users) {
+                                                for (Hidrometro h : u.getHidrometros()) {
+                                                    if (h.getLimiteAlerta() > 0
+                                                            && h.getConsumoTotal() > h.getLimiteAlerta()) {
+                                                        // Determine Notification Type
+                                                        String via = h.getTipoAlerta() != null ? h.getTipoAlerta()
+                                                                : "EMAIL";
+                                                        String mockMsg = via.equalsIgnoreCase("SMS")
+                                                                ? "[MOCK: Enviando SMS para usuario " + u.getId() + "]"
+                                                                : "[MOCK: Enviando e-mail para usuario " + u.getId()
+                                                                        + "]";
+
+                                                        String persistentMsg = "ALERTA [SITUAÇÃO ATUAL]: Consumo "
+                                                                + String.format("%.2f", h.getConsumoTotal())
+                                                                + " > " + String.format("%.2f", h.getLimiteAlerta())
+                                                                + " (User: " + u.getId() + ", Hidro: " + h.getId()
+                                                                + ")\n"
+                                                                + "     >>> " + mockMsg;
+                                                        alertsToDisplay.add(persistentMsg);
+                                                    }
+                                                }
+                                            }
+
+                                            // Only show history if NO persistent alerts are active (to avoid
+                                            // duplicates/clutter)
+                                            if (alertsToDisplay.isEmpty()) {
+                                                alertsToDisplay.addAll(activeAlerts);
+                                            }
+
+                                            if (!alertsToDisplay.isEmpty()) {
+                                                exibirAlertaChamativo(alertsToDisplay);
+                                            }
+
                                             for (Usuario u : users) {
                                                 if (u.getTipo() == TipoUsuario.ADMIN)
                                                     continue;
@@ -154,10 +192,17 @@ public class PainelCLI {
                                 System.out.print("ID do Usuário Alvo: ");
                                 String idAlvo = scanner.nextLine();
                                 System.out.print("Limite: ");
-                                double lim = Double.parseDouble(scanner.nextLine());
-                                System.out.print("Tipo (EMAIL/SMS): ");
-                                String tNotif = scanner.nextLine();
-                                fachada.configurarAlerta(idAlvo, lim, tNotif);
+                                double limite = scanner.nextDouble();
+                                scanner.nextLine(); // consume newline
+
+                                System.out.print("Tipo de Notificação [EMAIL/SMS] (Padrão: EMAIL): ");
+                                String tipoNotificacao = scanner.nextLine();
+                                if (tipoNotificacao.isEmpty()) {
+                                    tipoNotificacao = "EMAIL";
+                                }
+
+                                fachada.configurarAlerta(idAlvo, limite, tipoNotificacao);
+                                System.out.println("Alerta configurado com sucesso!");
                                 fachada.logInfo("CLI: Alerta configurado para " + idAlvo);
                                 break;
                             case "3":
@@ -247,7 +292,13 @@ public class PainelCLI {
                                                     System.out.println("Valor inválido. Usando 0.0.");
                                                 }
 
-                                                if (fachada.adicionarHidrometro(idUserH, idHidro, modH, limiteH)) {
+                                                System.out.print("Tipo de Alerta (EMAIL/SMS) [Default: EMAIL]: ");
+                                                String tipoH = scanner.nextLine();
+                                                if (tipoH.isEmpty())
+                                                    tipoH = "EMAIL";
+
+                                                if (fachada.adicionarHidrometro(idUserH, idHidro, modH, limiteH,
+                                                        tipoH)) {
                                                     System.out.println("Hidrômetro vinculado com sucesso!");
                                                     esperarEnter(scanner);
                                                     break;
@@ -373,39 +424,142 @@ public class PainelCLI {
                                 System.out.println("Opção inválida.");
                         }
                     } else {
+                        // STANDARD USER MENU
                         switch (opcao) {
                             case "1":
                                 limparTela();
-                                System.out.println("=== Configurar Alerta Pessoal ===");
-                                System.out.print("Limite de Consumo: ");
-                                double lim = Double.parseDouble(scanner.nextLine());
-                                System.out.print("Tipo (EMAIL/SMS): ");
-                                String tNotif = scanner.nextLine();
-                                fachada.configurarAlerta(usuario, lim, tNotif);
-                                fachada.logInfo("CLI: Alerta pessoal configurado para " + usuario);
+                                System.out.println("=== Monitoramento Pessoal ===");
+                                fachada.logInfo("CLI: Usuário " + usuario + " iniciou monitoramento pessoal.");
+                                System.out.println("Iniciando monitoramento...");
+                                fachada.iniciarMonitoramento(); // Ensure monitoring is active
+
+                                System.out.println("Pressione ENTER para parar a visualização.");
+
+                                Thread displayThread = new Thread(() -> {
+                                    // Buffer for alerts in UI (Standard User)
+                                    List<String> activeAlerts = new java.util.ArrayList<>();
+
+                                    while (!Thread.currentThread().isInterrupted()) {
+                                        try {
+                                            limparTela();
+                                            System.out.println("=== Monitoramento Pessoal (" + usuario + ") ===");
+
+                                            // 1. Fetch and accumulate alerts (History)
+                                            List<String> freshAlerts = fachada.getAlertasRecentes();
+
+                                            // Filter alerts for this user before adding to buffer
+                                            for (String alert : freshAlerts) {
+                                                if (alert.contains("User: " + usuario)) {
+                                                    activeAlerts.add(alert);
+                                                }
+                                            }
+
+                                            // Keep only last 5
+                                            if (activeAlerts.size() > 5) {
+                                                activeAlerts = activeAlerts.subList(activeAlerts.size() - 5,
+                                                        activeAlerts.size());
+                                            }
+
+                                            // 2. Prepare Display List
+                                            List<String> alertsToDisplay = new java.util.ArrayList<>();
+
+                                            com.cagepa.pmg.sgu.Usuario u = fachada.getUsuarioPorId(usuario);
+                                            if (u != null) {
+                                                for (com.cagepa.pmg.sgu.Hidrometro h : u.getHidrometros()) {
+                                                    if (h.getLimiteAlerta() > 0
+                                                            && h.getConsumoTotal() > h.getLimiteAlerta()) {
+                                                        String via = h.getTipoAlerta() != null ? h.getTipoAlerta()
+                                                                : "EMAIL";
+                                                        String mockMsg = via.equalsIgnoreCase("SMS")
+                                                                ? "[MOCK: Enviando SMS para usuario " + u.getId() + "]"
+                                                                : "[MOCK: Enviando e-mail para usuario " + u.getId()
+                                                                        + "]";
+
+                                                        String persistentMsg = "ALERTA [SITUAÇÃO ATUAL]: SEU CONSUMO "
+                                                                + String.format("%.2f", h.getConsumoTotal())
+                                                                + " > " + String.format("%.2f", h.getLimiteAlerta())
+                                                                + " (Hidro: " + h.getId() + ")\n"
+                                                                + "     >>> " + mockMsg;
+                                                        alertsToDisplay.add(persistentMsg);
+                                                    }
+                                                }
+                                            }
+
+                                            // Only show history if NO persistent alerts are active
+                                            if (alertsToDisplay.isEmpty()) {
+                                                alertsToDisplay.addAll(activeAlerts);
+                                            }
+
+                                            System.out.println("--- Alertas Recentes ---");
+                                            if (!alertsToDisplay.isEmpty()) {
+                                                exibirAlertaChamativo(alertsToDisplay);
+                                            } else {
+                                                System.out.println("(Nenhum alerta recente)");
+                                            }
+
+                                            // Status
+                                            System.out.println("\n--- Meus Hidrômetros ---");
+                                            if (u != null && !u.getHidrometros().isEmpty()) {
+                                                for (com.cagepa.pmg.sgu.Hidrometro h : u.getHidrometros()) {
+                                                    String status = fachada.getStatusHidrometro(h.getId());
+                                                    System.out.printf(
+                                                            "Hidro: %s | Modelo: %s | Consumo: %.2f | Status: %s | Limite: %.2f | Via: %s%n",
+                                                            h.getId(), h.getModelo(), h.getConsumoAtual(), status,
+                                                            h.getLimiteAlerta(), h.getTipoAlerta());
+                                                }
+                                            } else {
+                                                System.out.println("Nenhum hidrômetro vinculado.");
+                                            }
+
+                                            System.out.println("\n------------------------------------------------");
+                                            System.out.println("Pressione ENTER para voltar ao menu.");
+
+                                            Thread.sleep(2000);
+                                        } catch (InterruptedException e) {
+                                            Thread.currentThread().interrupt();
+                                        } catch (Exception e) {
+                                            System.out.println("Erro na exibição: " + e.getMessage());
+                                        }
+                                    }
+                                });
+                                displayThread.start();
+                                esperarEnter(scanner);
+                                displayThread.interrupt();
+                                try {
+                                    displayThread.join();
+                                } catch (InterruptedException e) {
+                                }
                                 break;
                             case "2":
-                                limparTela();
-                                System.out.println("=== Gerar Relatório Pessoal ===");
-                                System.out.print("Tipo (PDF/CSV): ");
-                                String tRel = scanner.nextLine();
-                                fachada.gerarRelatorio(tRel, usuario);
-                                fachada.logInfo("CLI: Relatório pessoal gerado para " + usuario);
+                                System.out.print("Novo limite de alerta de consumo: ");
+                                double lim = Double.parseDouble(scanner.nextLine());
+                                System.out.print("Tipo de Notificação (EMAIL/SMS): ");
+                                String tipoNotif = scanner.nextLine();
+                                if (tipoNotif.isEmpty())
+                                    tipoNotif = "EMAIL";
+
+                                fachada.configurarAlerta(usuario, lim, tipoNotif);
+                                System.out.println("Configuração atualizada!");
+                                esperarEnter(scanner);
                                 break;
                             case "3":
-                                limparTela();
-                                System.out.println("=== Alterar Minha Senha ===");
+                                fachada.gerarRelatorio("PDF", usuario); // Default to PDF for basic user
+                                System.out.println("Relatório gerado (verifique os logs ou diretório de saída).");
+                                esperarEnter(scanner);
+                                break;
+                            case "4":
                                 System.out.print("Nova Senha: ");
                                 String novaSenha = scanner.nextLine();
                                 fachada.atualizarSenha(usuario, novaSenha);
-                                fachada.logInfo("CLI: Senha pessoal atualizada para " + usuario);
+                                System.out.println("Senha atualizada com sucesso!");
+                                esperarEnter(scanner);
                                 break;
                             case "0":
                                 logado = false;
-                                fachada.logInfo("CLI: Logout realizado.");
                                 break;
                             default:
                                 System.out.println("Opção inválida.");
+                                esperarEnter(scanner);
                         }
                     }
 
@@ -433,5 +587,22 @@ public class PainelCLI {
     private static void esperarEnter(Scanner scanner) {
         System.out.println("\nPressione ENTER para continuar...");
         scanner.nextLine();
+    }
+
+    // Método auxiliar para exibir alertas chamativos
+    private static void exibirAlertaChamativo(List<String> alertas) {
+        System.out.print(BEEP); // Som de beep
+        System.out.println(
+                ANSI_RED_BG + ANSI_WHITE_BOLD + "===============================================" + ANSI_RESET);
+        System.out.println(
+                ANSI_RED_BG + ANSI_WHITE_BOLD + "            !!! ALERTA DE CONSUMO !!!          " + ANSI_RESET);
+        System.out.println(
+                ANSI_RED_BG + ANSI_WHITE_BOLD + "===============================================" + ANSI_RESET);
+        for (String alert : alertas) {
+            System.out.println(ANSI_BLINK + " (!) " + alert + ANSI_RESET);
+        }
+        System.out.println(
+                ANSI_RED_BG + ANSI_WHITE_BOLD + "===============================================" + ANSI_RESET);
+        System.out.println();
     }
 }
