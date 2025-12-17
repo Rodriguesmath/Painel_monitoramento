@@ -12,7 +12,7 @@ public class Logger {
     private Logger() {
         try {
             // Append mode
-            logWriter = new java.io.PrintWriter(new java.io.FileWriter("system.log", true), true);
+            logWriter = new java.io.PrintWriter(new java.io.FileWriter("system.log", false), true);
         } catch (java.io.IOException e) {
             System.err.println("CRITICAL: Failed to open system.log: " + e.getMessage());
         }
